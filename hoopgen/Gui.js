@@ -1,7 +1,7 @@
 function initGUI(){
 
     // Main Gui ////////////////////////////////////////////////////////////////
-    datGui = new dat.GUI({width:500,  autoPlace:false});
+    datGui = new dat.GUI({width:380,  autoPlace:false});
 
     datDom = datGui.domElement;
     datDom.style.font = "400 14px Verdana, Arial, sans-serif";
