@@ -1,0 +1,89 @@
+<meta name = "viewport" content = "user-scalable=no, width=device-width, initial-scale=0.75">
+
+<html style="overflow: hidden; margin:0;">
+
+    <head>
+        <title>HOOPGEN</title>
+        <meta charset="utf-8">
+        <link rel="icon" href="/~bucpet08/favicon.ico" type="image/x-icon" />
+    </head>
+
+<style>
+    a:link {
+        color: white;
+        font-size:25px;
+    }
+
+
+    #wheelRenderer {
+        position: fixed;
+        z-index: 100;
+        top: 0px;
+        right: 0px;
+        background-color:083045;
+    }
+
+    #wheelUI {
+        position: fixed;
+        height: 0px;
+        top: 0px;
+        left: 0px;
+
+        font : 400 14px Verdana, Arial, sans-serif;
+        background-color:083045;
+        border: 1px solid black;
+        width: 38%;
+        color: white;
+        overflow-x:scroll;
+    }
+    </style>
+
+
+    <body style="overflow: hidden; margin:0; background-color:083045;">
+
+        <script>
+            var scene, camera, renderer;
+            var WHEEL;           //Holds an instance of the Wheel.js Class
+            var spokeGuiVar;
+        </script>
+
+        <div id="wheelRenderer"></div>
+        <div id="wheelUI" ></div>
+
+       <!--    three.js library   -->
+        <script src="three.js"></script>
+
+        <!--    dat.gui library   -->
+        <script src="dat.gui.js"></script>
+
+        <!--    three.js control library   -->
+        <script src="OrbitControls.js"></script>
+
+
+        <script src="Materials.js"></script>
+
+        <!--    makes the gui and makes sure parameter changes to change the
+                varible data -->
+        <script src="Gui.js"></script>
+
+        <script src="Wheel.js"></script>
+
+        <!--    creates the rim mesh -->
+        <script src="Rim.js"></script>
+
+        <!--    creates the hub mesh -->
+        <script src="Hub.js"></script>
+
+        <!--    creates a single spoke mesh-->
+        <script src="Spoke.js"></script>
+
+        <script src="Spokes.js"></script>
+
+        <script src="Main.js"></script>
+
+        <script>main();</script>
+
+
+    </body>
+
+</html>

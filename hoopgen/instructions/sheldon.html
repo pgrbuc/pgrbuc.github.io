@@ -1,0 +1,336 @@
+﻿<!DOCTYPE html>
+<html>
+
+<style>
+    div.textbox {
+        margin: 10px;
+        background-color: #000000;
+        border: 1px solid black;
+    }
+
+    div.textbox ul {
+        margin: 2.5%;
+        line-height: 1.5
+        color: white;
+        link: white;
+        font : 400 17px Verdana, Arial, sans-serif;
+    }
+    div.textbox p {
+        margin: 2.5%;
+        line-height: 1.5
+        color: white;
+        link: white;
+        font : 400 17px Verdana, Arial, sans-serif;
+    }
+    div.textbox h4 {
+        margin: 2.5%;
+        line-height: 1.5
+        color: white;
+        link: white;
+        font : 400 20px Verdana, Arial, sans-serif;
+        text-align: center;
+    }
+</style>
+
+<img src="./instructions/bike.png" alt=""  onload="
+
+    function getProgress(){
+        var wheelUI = document.getElementById('wheelUI');
+        var keyspoke = document.getElementById('keyspoke');
+        var secondgroup = document.getElementById('secondgroup');
+        var leadingspokes = document.getElementById('leadingspokes');
+
+        var scrollBot = wheelUI.scrollTop + wheelUI.clientHeight;
+
+        var keytop = keyspoke.offsetTop;
+        var keybot = keytop + keyspoke.offsetHeight;
+        var keyprog = (scrollBot - keytop)/(keybot - keytop);
+        if (keyprog < 0) keyprog = 0;
+        if (keyprog > 1) keyprog = 1;
+
+        var sectop = secondgroup.offsetTop;
+        var secbot = sectop + secondgroup.offsetHeight;
+        var secprog = (scrollBot - sectop)/(secbot - sectop)
+        if (secprog < 0) secprog = 0;
+        if (secprog > 1) secprog = 1;
+
+        var leadtop = leadingspokes.offsetTop;
+        var leadbot = leadtop + leadingspokes.offsetHeight;
+        var leadprog = (scrollBot - leadtop)/(leadbot - leadtop);
+        if (leadprog < 0) leadprog = 0;
+        if (leadprog > 1) leadprog = 1;
+
+        var totalper = 0;
+        totalper += 0.25 * keyprog;
+        totalper += 0.25 * secprog;
+        totalper += 0.50 * leadprog;
+
+        return totalper;
+    }
+
+    function updateText(){
+        var no = WHEEL.spokeNumber;
+        document.getElementById('forth').innerHTML=no/4;
+        document.getElementById('forthb').innerHTML=(no/4)-1;
+        document.getElementById('half').innerHTML=(no/2);
+        document.getElementById('halfb').innerHTML=(no/2)-1;
+        var crx = WHEEL.spokeCrossings;
+        if (crx > 0){
+            document.getElementById('crossa').innerHTML=crx;
+            document.getElementById('crossb').innerHTML=crx;
+            document.getElementById('crossc').innerHTML=crx;
+            document.getElementById('crossd').innerHTML=--crx;
+
+            document.getElementById('crossouta').style.textDecoration='';
+            document.getElementById('crossoutb').style.textDecoration='';
+            document.getElementById('crossoutc').style.textDecoration='';
+        }
+        else{
+            document.getElementById('crossouta').style.textDecoration='line-through';
+            document.getElementById('crossoutb').style.textDecoration='line-through';
+            document.getElementById('crossoutc').style.textDecoration='line-through';
+        }
+    };
+
+    function buildSpokeQueue(){
+        //sheldon brown's method
+        spokeQueue = [];
+
+        if (WHEEL.rimRightHanded){
+            //trailing right
+            for (var i=0; i < WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+
+            //leading left
+            for (var i=1; i < WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+
+            //leading right
+            for (var i=2; i < WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+
+            //trailing left
+            for (var i=3; i < WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+        }
+        else
+        {
+            //Trailing Right
+            for (var i=1; i < WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+
+            //Leading Left
+            for (var i=0; i< WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+
+            //Leading Right
+            for (var i=3; i <WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+
+            //Trailing Left
+            for (var i=2; i < WHEEL.spokeNumber; i+=4)
+                spokeQueue.push(i);
+        }
+        WHEEL.spokesObj.spokeQueue = spokeQueue;
+        WHEEL.spokesObj.needsQueue = false;
+        WHEEL.spokesObj.addAll();
+    }
+
+    function myScript(){
+        updateText();
+
+        if (WHEEL.spokesObj.needsQueue == true)
+            buildSpokeQueue();
+
+        WHEEL.spokesObj.addPer(getProgress());
+    };
+
+    WHEEL.instructionUpdate = function(){myScript();};
+
+    wheelUI.addEventListener('scroll', myScript);
+
+
+    window.setInterval(function(){
+        myScript();
+    }, 500);
+
+    //remove image
+    this.parentNode.removeChild(this);
+" />
+
+<div class="textbox" id="intro">
+
+    <br>
+
+    <h1 align="center">Scroll to Start Program</h1>
+
+    <h4> Sheldon Brown's instructions with a interactive display</h4>
+
+    <br>
+
+    <h1 align="center"> Computer controls</h1> <ul>
+        <br>
+        <li>Scroll wheel:   Zoom in/out </li>
+        <li>Mouse 1:        Rotate Wheel</li>
+        <li>Mouse 2:        Move Wheel</li>
+    </ul>
+
+    <br><br>
+
+    <h1 align="center"> iPhone controls:</h1> <ul>
+        <br>
+        <li>Two finger pinch:   Zoom in/out </li>
+        <li>One finger drag:    Rotate Wheel</li>
+        <li>Three finger drag:  Move Wheel</li>
+    </ul>
+
+    <br><br><br><br>
+
+</div>
+
+<div class="textbox" id="lacing">
+
+    <h1 align="center">Lacing</h1>
+
+    <p>Lacing is most easily done sitting down, holding the rim on edge in your
+    lap. People who build wheels all day long start by putting all of the spokes
+    into the hub, then connecting them to the rim one after another. This
+    approach is slightly faster on a production basis, but the occasional
+    builder runs a higher risk of lacing errors this way.</p>
+
+    <p>Non-production wheelbuilders usually put the spokes in one 'group' at a
+    time. A conventional wheel has 4 'groups' of spokes: Half of the spokes go
+    to the right flange, and half go to the left. On each flange, half are
+    'trailing' spokes and half are 'leading' spokes.</p>
+
+</div>
+
+
+<div id="keyspoke" class="textbox">
+<h1 align="center">The 'key' spoke</h1>
+
+<p>The first spoke to be installed is the 'key spoke'.</p>
+
+<p>This spoke must be in the right place or the valve hole will be in the wrong
+place, and the drilling of the rim may not match the angles of the spokes. The
+key spoke will be a trailing spoke, freewheel side. It is easiest to start with
+the trailing spokes, because they are the ones that run along the inside
+flanges of the hub. If you start with the leading spokes, it will be more
+awkward to install the trailing spokes because the leading spokes will be in
+the way.</p>
+
+<p>Since the key spoke is a trailing spoke, it should run along the inside of
+the flange. The head of the spoke will be on the outside of the flange.</p>
+
+<p>It is customary to orient the rim so that the label is readable from the
+bicycle's right side. If the hub has a label running along the barrel, it
+should be located so that it can be read through the valve hole.  These things
+will not affect the performance of the wheel, but good wheelbuilders pay
+attention to these things as a matter of pride and aesthetics.</p>
+
+<p>Rims are drilled either 'right handed' or 'left handed'. This has to do with
+the relationship between the valve hole and the spoke holes. The spoke holes do
+not run down the middle of the rim, but are offset alternately from side to
+side. The holes on the left side of the rim are for spokes that run to the left
+flange of the hub. With some rims, the spoke hole just forward of the valve
+hole is offset to the left, with others it is offset to the right (as
+illustrated). Which type is 'right handed' and which 'left handed'? I have
+never met anyone who was willing to even make a guess!</p>
+
+<p>The key spoke will be next to the valve hole in the rim, or one hole away.</p>
+
+<p>As viewed from the right (sprocket) side of the hub, the key spoke will run
+counterclockwise, and it will go to either the hole just to the right of the
+valve hole (as illustrated) or the second hole to the right, depending on how
+the rim is drilled. The aim is to make the four spokes closest to the valve
+hole all angle away from the valve, giving easier access to the valve for
+inflation.</p>
+
+<p>Screw a nipple a couple of turns onto the key spoke to hold it in place.
+Next, put another spoke through the hub two holes away from the key spoke, so
+that there is one empty hole between them on the hub flange. This spoke goes
+through the rim 4 holes away from the key spoke, with 3 empty holes in between,
+not counting the valve hole.</p>
+
+<p>Continue around the wheel until all <span id="forth">9</span> of the first
+group of spokes are in place. Double check that the spacing is even both on the
+hub (every other hole should be empty) and the rim (you should have a spoke, 3
+empty holes, a spoke, etc. all the way around. Make sure that the spokes are
+going through the holes on the same side of the rim as the flange of the hub.
+It should look like this:</p>
+</div>
+
+<div class="textbox" id="secondgroup">
+<h1 align="center">The second group</h1>
+
+<p>Now turn the wheel over and examine the hub. The holes on the left flange do
+not line up with the holes on the right flange, but halfway between them. If
+you have trouble seeing this, slide a spoke in from the left flange parallel to
+the axle, and you will see how it winds up bumping against the right flange
+between two spoke holes. Turn the wheel so that the valve hole is at the top of
+the wheel. Since you are now looking at the wheel from the non-freewheel side,
+the key spoke will be to the left of the valve hole.</p>
+
+<p>If the key spoke is next to the valve hole, insert a spoke into the left
+flange so that it lines up just to the left of where the key spoke comes out of
+the hub, and run it to the hole in the rim that is just to the left of the key
+spoke.</p>
+
+<p>In the illustration, the key spoke is right next to the valve hole. Some
+rims are drilled with the opposite 'handedness', so this may not be the case
+for your wheel.</p>
+
+<p>If the key spoke is separated from the valve hole by an empty spoke hole,
+insert a spoke into the left flange so that it lines up to the right of where
+the key spoke comes out of the hub, (looking at the wheel from the left!) and
+run this tenth spoke to the hole between the key spoke and the valve hole</p>
+
+<p>If you have done this correctly, the spoke you have just installed will not
+cross the key spoke. When you flip the wheel back around so you're looking from
+the right side, if the tenth spoke is to the left of the key spoke at the hub,
+it will also be to the left of it at the rim. Like the first group of spokes,
+it will be a trailing spoke, it will run along the inside of the flange, and
+the head will face out from the outside of the flange. Install the other
+<span id="forthb">8</span> spokes in this group following the same pattern.</p>
+
+<p>At the end of this stage, the wheel will have all <span id="half">18</span> of
+the trailing spokes in place. In the rim, there will be two spokes, two empty
+holes, two spokes, two empty holes...etc. as shown below:</p>
+
+</div>
+
+<div class="textbox" id="leadingspokes" >
+<h1 align="center">The leading spokes</h1>
+
+<p>Turn the wheel back around so that the freewheel
+side is toward you.  Insert a spoke into any hole, but this time from the
+inside of the flange.
+<span id="crossouta">Twist the hub clockwise as far as it will conveniently go. Since
+we are building a cross <span id="crossa">3</span> wheel, this new spoke will
+cross <span id="crossb">3</span> trailing spokes that go to the same flange of
+the hub.</span></p>
+
+<p><span id="crossoutb">The first <span id="crossd">2</span> crosses, this
+spoke will pass outside of the trailing spokes, but for the outermost cross it
+should be 'laced' so that it goes on the inside of the last trailing spoke. You
+will have to bend this leading spoke to get it around the last trailing spoke
+on the correct side.</span></p>
+
+<p><span id="crossoutc">After this leading spoke has crossed <span
+id="crossc">3</span> trailing spokes, there will be two possible rim holes to
+connect it to. Use the rim hole that is on the same side as the flange you are
+working from. It should not be right next to one of the trailing spokes that
+runs from the same flange of the hub.</span></p>
+
+<p>Install the other <span id="halfb">17</span> leading spokes following the
+same pattern. If you can't get some of the spokes to reach their nipples, make
+sure that the nipples on the trailing spokes are seated into their holes. When
+you are done, double check around the rim to make sure that every other spoke
+goes to the opposite flange of the hub.</p>
+
+
+</body>
+
+</html>
+
+
