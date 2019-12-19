@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en-us">
+
+<!--****************************************************************************
+**  Header / Styles                                                          |||
+*****************************************************************************-->
+
+<head>
+<title>CDECL</title>
+<meta charset="utf-8">
+<style>
+
+/*
+ * Sets everythings style to be the same.  I'm not sure why the CSS default
+ * values confuse me so much, but they never act how I expect and usually I
+ * spend more time googling and fiddling than I'd like.
+ */
+
+* {
+    display:            inline-block;
+    position:           relative;
+    float:              left;
+
+    margin:             0ch;
+
+    border:             none;
+    border-width:       0ch;
+
+    padding:            0ch;
+
+    font-family:        Monospace, Courier;
+    font-size:          12pt;
+    text-align          justify;
+
+    background-color:   grey;
+    color:              black;
+}
+
+head, title, style, script {
+    display:            none;
+}
+
+.horizontal {
+    width:              100vw;
+}
+
+#status {
+    background-color:   white;
+}
+
+#controls {
+    background-color:   black;
+}
+
+#box {
+    height:             100vh;
+    background-color:   black;
+}
+
+.button {
+    margin-top:         1ch;
+    margin-left:        1ch;
+
+    border:             double;
+    border-width:       0.5ch;
+
+    padding:            0.5ch;
+}
+
+.run {
+    background-color:   green;
+    color:              white;
+}
+
+.in {
+    background-color:   #6b5b95;
+    color:              white;
+}
+
+.out {
+    background-color:   #d64161;
+    color:              white;
+}
+
+.textarea {
+    margin-top:         1ch;
+    margin-left:        1ch;
+
+    border:             double;
+    border-width:       0.5ch;
+
+    padding:            0.5ch;
+
+    width:              calc(50vw  - 3.5ch);
+    height:             calc(100vh - 3.5ch);
+
+    overflow:           scroll;
+}
+
+#output {
+    background-color:   #d64161;
+    color:              white;
+}
+
+#input {
+    background-color:   #6b5b95;
+    color:              white;
+}
+
+</style>
+</head>
+
+<!--****************************************************************************
+**  HTML Body                                                                |||
+*****************************************************************************-->
+
+<body>
+
+    <div class="horizontal" id="status"> Starting... </div>
+    <!--
+    <div class="horizontal" id="controls">
+        <button class="in button" onclick="print_input()"> Print </button>
+        <button class="in button" onclick="save_input()"> Save </button>
+        <button class="run button" onclick="run_function()"> Run </button>
+        <button class="out button" onclick="print_output()"> Print </button>
+        <button class="out button" onclick="save_output()"> Save </button>
+    </div>
+    -->
+
+    <div class="horizontal" id="box">
+        <textarea class="textarea" id="input"></textarea>
+        <textarea class="textarea" id="output"></textarea>
+    </div>
+
+</body>
+
+<!--****************************************************************************
+**  Javascript                                                               |||
+*****************************************************************************-->
+
+<script type='text/javascript'>
+
+var statusElement = document.getElementById('status');
+var outputElement = document.getElementById('output');
+var inputElement  = document.getElementById('input');
+
+statusElement.value = 'Downloading...';
+inputElement.value  = '';
+outputElement.value = 'Type in other text area to begin'
+    + '\n' +   ''
+    + '\n' +   'Type \'help\' or \'?\' to print cdecl\'s built in help prompt'
+    + '\n' +   ''
+    + '\n' +   '-------- Examples --------'
+    + '\n' +   ''
+    + '\n' +   ' > explain int*(*x)(int)'
+    + '\n' +   '    declare x as pointer to function (int) returning pointer to int'
+    + '\n' +   ''
+    + '\n' +   ' > declare x as static const pointer to volatile int'
+    + '\n' +   '    static volatile int * const x'
+    + '\n' +   ''
+    + '\n' +   ' > declare fp as pointer to function(int) returning pointer to array 16 of int'
+    + '\n' +   '    int (*(*fun)(int ))[16]'
+    + '\n' +   ''
+    + '\n' +   ' > declare fp as ptr to func(int) returning ptr to array 16 of int'
+    + '\n' +   '    int (*(*fun)(int ))[16]'
+    + '\n' +   ''
+    + '\n' +   '-------- Grammar Hints --------'
+    + '\n' +   ''
+    + '\n' +   'Remember cdecl only recognizes text in the following forms:'
+    + '\n' +   '    declare ____ as'
+    + '\n' +   '    __ pointer to __'
+    + '\n' +   '    __ function returning __'
+    + '\n' +   '    __ array of __'
+    + '\n' +   '    __ array 16 of __'
+    + '';
+
+function print_status(text) {
+    statusElement.innerHTML = text;
+    if (!text)
+        statusElement.parentNode.removeChild(statusElement);
+}
+
+function print_depends(x) {
+    print_status("Preparing " + String(x));
+}
+
+function print_output() {
+    outputElement.value = FS.readFile("/out", { encoding: 'utf8' });
+}
+
+function print_input() {
+    inputElement.value = FS.readFile("/in", { encoding: 'utf8' });
+}
+
+function save_input(str) {
+    FS.writeFile('/in', str ? str : inputElement.value, {flags:'w'});
+}
+
+function save_output() {
+    FS.writeFile('/out', str ? str : outputElement.value, {flags:'w'});
+}
+
+var run_function;
+function post_run() {
+    run_function = function() {
+        save_input(inputElement.value + '\n');
+        Module.asm['_cdecl_function']();
+        print_output();
+    }
+    inputElement.oninput = run_function;
+}
+
+var Module = {
+    preRun:     [],
+    postRun:    [post_run],
+    printErr:   console.log,
+    setStatus:  print_status,
+    monitorRunDependencies: print_depends,
+};
+
+window.onerror = function(event) {
+    print_status('Exception thrown, see JavaScript console');
+    Module.setStatus = console.log;
+};
+
+</script>
+
+<script async type="text/javascript" src="main.js"></script>
+
+</html>
+
