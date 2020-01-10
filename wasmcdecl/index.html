@@ -29,11 +29,21 @@
     padding:            0ch;
 
     font-family:        Monospace, Courier;
-    font-size:          12pt;
     text-align          justify;
 
     background-color:   grey;
     color:              black;
+}
+
+@media screen and (max-device-width: 768px) {
+    * {
+        font-size:          14pt;
+    }
+}
+@media not screen and (max-device-width: 768px) {
+    * {
+        font-size:          12pt;
+    }
 }
 
 head, title, style, script {
@@ -82,6 +92,8 @@ head, title, style, script {
     color:              white;
 }
 
+
+
 .textarea {
     margin-top:         1ch;
     margin-left:        1ch;
@@ -91,10 +103,20 @@ head, title, style, script {
 
     padding:            0.5ch;
 
-    width:              calc(50vw  - 3.5ch);
-    height:             calc(100vh - 3.5ch);
-
     overflow:           scroll;
+}
+
+@media screen and (max-device-width: 768px) {
+    .textarea {
+        width:              calc(100vw - 3.5ch);
+        height:             calc(50vh  - 3.5ch);
+    }
+}
+@media not screen and (max-device-width: 768px) {
+    .textarea {
+        width:              calc(50vw  - 3.5ch);
+        height:             calc(100vh - 3.5ch);
+    }
 }
 
 #output {
@@ -106,6 +128,8 @@ head, title, style, script {
     background-color:   #6b5b95;
     color:              white;
 }
+
+
 
 </style>
 </head>
