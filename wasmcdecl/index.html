@@ -1,13 +1,12 @@
 <!doctype html>
 <html lang="en-us">
-
+<head>
 <!--****************************************************************************
 **  Header / Styles                                                          |||
 *****************************************************************************-->
-
-<head>
 <title>CDECL</title>
-<meta charset="utf-8">
+<meta charset="UTF-8" name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+</meta>
 <style>
 
 /*
@@ -17,235 +16,294 @@
  */
 
 * {
-    display:            inline-block;
-    position:           relative;
-    float:              left;
+    display:                flex;
+    flex-grow:              inherit;
+    align-items:            stretch;
+    justify-content:        inherit;
+    flex-direction:         inherit;
 
-    margin:             0ch;
+    margin:                 0ch;
+    border:                 none;
+    border-width:           0ch;
+    padding:                0ch;
 
-    border:             none;
-    border-width:       0ch;
+    font-family:            monospace, monospace;
+    font-size:              12pt;
+    text-align              justify;
 
-    padding:            0ch;
+    background-color:       red;
+    color:                  red;
 
-    font-family:        Monospace, Courier;
-    text-align          justify;
-
-    background-color:   grey;
-    color:              black;
+    pointer-events:         auto;
 }
 
-@media screen and (max-device-width: 768px) {
-    * {
-        font-size:          14pt;
-    }
-}
-@media not screen and (max-device-width: 768px) {
-    * {
-        font-size:          12pt;
-    }
+pre {
+    white-space:            pre-wrap;
 }
 
 head, title, style, script {
-    display:            none;
+    display:                none;
 }
 
-.horizontal {
-    width:              100vw;
+p {
+    display:                block;
 }
 
-#status {
-    background-color:   white;
-}
-
-#controls {
-    background-color:   black;
-}
-
-#box {
-    height:             100vh;
-    background-color:   black;
+.layer {
+    position:               fixed;
+    top:                    0ch;
+    left:                   0ch;
+    height:                 100vh;
+    width:                  100vw;
 }
 
 .button {
-    margin-top:         1ch;
-    margin-left:        1ch;
+    margin:                 2ch 1ch 2ch 1ch;
+    padding:                0ch 1ch 0ch 1ch;
+}
 
-    border:             double;
-    border-width:       0.5ch;
+.bordered {
+    border:                 solid;
+    border-width:           1ch;
+}
 
-    padding:            0.5ch;
+.textarea {
+    margin:                 2ch 1ch 2ch 1ch;
+    padding:                0ch 0ch 0ch 0ch;
+    overflow:               scroll;
+}
+
+.htmlarea {
+    display:                initial;
+    overflow:               scroll;
+}
+
+/* smaller borders on smaller displays */
+@media (max-device-width: 768px) {
+    .bordered {
+        border-width:       0.2ch;
+    }
+    .button {
+        padding:            0.2ch;
+        margin:             0.2ch;
+    }
+
+    .textarea {
+        margin:             0.2ch;
+        padding:            0.2ch;
+    }
+}
+
+/* visibility / color modifiers */
+
+.hidden {
+    display:                none;
+}
+
+.floating {
+    background-color:       transparent;
+    color:                  transparent;
+
+    /* allows clicking through a transparent div */
+    pointer-events:         none;
+}
+
+.background {
+    background-color:       black;
+    color:                  white;
+}
+
+.info {
+    background-color:       blue;
+    color:                  white;
+}
+
+.error {
+    background-color:       red;
+    color:                  white;
+}
+
+.warn {
+    background-color:       yellow;
+    color:                  white;
 }
 
 .run {
-    background-color:   green;
-    color:              white;
+    background-color:       green;
+    color:                  white;
 }
 
 .in {
-    background-color:   #6b5b95;
-    color:              white;
+    background-color:       #6b5b95;
+    color:                  white;
 }
 
 .out {
-    background-color:   #d64161;
-    color:              white;
+    background-color:       #d64161;
+    color:                  white;
 }
 
+/* size / alignment modifiers */
 
-
-.textarea {
-    margin-top:         1ch;
-    margin-left:        1ch;
-
-    border:             double;
-    border-width:       0.5ch;
-
-    padding:            0.5ch;
-
-    overflow:           scroll;
+#io_layer {
+    flex-direction:         row;
+    flex-grow:              1;
 }
 
-@media screen and (max-device-width: 768px) {
-    .textarea {
-        width:              calc(100vw - 3.5ch);
-        height:             calc(50vh  - 3.5ch);
+#controls_layer {
+    align-items:            flex-end;
+    justify-content:        flex-end;
+}
+
+#info_layer {
+    align-items:            center;
+    justify-content:        center;
+}
+
+#info {
+    align-items:            flex-start;
+    justify-content:        flex-start;
+    width:                  75vw;
+    height:                 75vh;
+}
+
+@media (max-device-width: 768px) {
+    #io_layer {
+        flex-direction:     column;
+    }
+    #input {
+        max-height:         13ch;
     }
 }
-@media not screen and (max-device-width: 768px) {
-    .textarea {
-        width:              calc(50vw  - 3.5ch);
-        height:             calc(100vh - 3.5ch);
-    }
-}
-
-#output {
-    background-color:   #d64161;
-    color:              white;
-}
-
-#input {
-    background-color:   #6b5b95;
-    color:              white;
-}
-
-
 
 </style>
-</head>
-
 <!--****************************************************************************
 **  HTML Body                                                                |||
 *****************************************************************************-->
+</head>
 
 <body>
 
-    <div class="horizontal" id="status"> Starting... </div>
-    <!--
-    <div class="horizontal" id="controls">
-        <button class="in button" onclick="print_input()"> Print </button>
-        <button class="in button" onclick="save_input()"> Save </button>
-        <button class="run button" onclick="run_function()"> Run </button>
-        <button class="out button" onclick="print_output()"> Print </button>
-        <button class="out button" onclick="save_output()"> Save </button>
-    </div>
-    -->
-
-    <div class="horizontal" id="box">
-        <textarea class="textarea" id="input"></textarea>
-        <textarea class="textarea" id="output"></textarea>
+    <div class="background layer" id="io_layer">
+        <textarea class="in  bordered textarea" id="input"></textarea>
+        <textarea class="out bordered textarea" id="output"></textarea>
     </div>
 
+
+    <div class="floating layer" id="info_layer">
+        <div class="bordered info htmlarea" id="info"></div>
+    </div>
+
+    <div class="floating layer" id="controls_layer">
+        <button class="hidden bordered in button" onclick="print_input()">Print</button>
+        <button class="hidden bordered in button" onclick="save_input()">Save</button>
+        <button class="hidden bordered out button" onclick="print_output()">Print</button>
+        <button class="hidden bordered out button" onclick="save_output()">Save</button>
+        <button class="hidden bordered run button" id="run_button">Run</button>
+        <button class="info bordered button" onclick="toggle_info()">Info</button>
+    </div>
 </body>
 
 <!--****************************************************************************
 **  Javascript                                                               |||
 *****************************************************************************-->
 
+<script type="text/javascript" src="defines.js"></script>
+
 <script type='text/javascript'>
 
-var statusElement = document.getElementById('status');
-var outputElement = document.getElementById('output');
-var inputElement  = document.getElementById('input');
+// Haskell-esque partial application
+const ap = function() {
+    var outer = arguments;
+    return function() {
+        var inner = arguments;
+        var args  = [];
+        for (i=1; i<outer.length; i++) args.push(outer[i]);
+        for (i=0; i<inner.length; i++) args.push(inner[i]);
+        outer[0].apply(null, args);
+    }
+}
+const infoElement   = document.getElementById('info');
+const infoLayer     = document.getElementById('info_layer');
+const outputElement = document.getElementById('output');
+const inputElement  = document.getElementById('input');
+const runButton     = document.getElementById('run_button');
 
-statusElement.value = 'Downloading...';
-inputElement.value  = '';
-outputElement.value = 'Type in other text area to begin'
-    + '\n' +   ''
-    + '\n' +   'Type \'help\' or \'?\' to print cdecl\'s built in help prompt'
-    + '\n' +   ''
-    + '\n' +   '-------- Examples --------'
-    + '\n' +   ''
-    + '\n' +   ' > explain int*(*x)(int)'
-    + '\n' +   '    declare x as pointer to function (int) returning pointer to int'
-    + '\n' +   ''
-    + '\n' +   ' > declare x as static const pointer to volatile int'
-    + '\n' +   '    static volatile int * const x'
-    + '\n' +   ''
-    + '\n' +   ' > declare fp as pointer to function(int) returning pointer to array 16 of int'
-    + '\n' +   '    int (*(*fun)(int ))[16]'
-    + '\n' +   ''
-    + '\n' +   ' > declare fp as ptr to func(int) returning ptr to array 16 of int'
-    + '\n' +   '    int (*(*fun)(int ))[16]'
-    + '\n' +   ''
-    + '\n' +   '-------- Grammar Hints --------'
-    + '\n' +   ''
-    + '\n' +   'Remember cdecl only recognizes text in the following forms:'
-    + '\n' +   '    declare ____ as'
-    + '\n' +   '    __ pointer to __'
-    + '\n' +   '    __ function returning __'
-    + '\n' +   '    __ array of __'
-    + '\n' +   '    __ array 16 of __'
-    + '';
-
-function print_status(text) {
-    statusElement.innerHTML = text;
-    if (!text)
-        statusElement.parentNode.removeChild(statusElement);
+const toggle_info = function() {
+    if (infoLayer.className == "hidden") {
+        infoLayer.className = "floating layer";
+    } else {
+        infoLayer.className = "hidden";
+    }
 }
 
-function print_depends(x) {
-    print_status("Preparing " + String(x));
+const log = function(color, text) {
+    var text = (Array.from(arguments)).slice(1).join(' ');
+    var p = '<p class="' + color + '">'
+    if (!arguments[2]) {
+        text += 'done';
+        setTimeout(toggle_info, 1000);
+    }
+
+    infoElement.innerHTML += p + text.toLowerCase() + "...</p>";
+};
+
+const console = {
+    log   : ap(log, 'run',   'console.log:    '),
+    info  : ap(log, 'info',  'console.info:   '),
+    warn  : ap(log, 'warn',  'console.warn:   '),
+    error : ap(log, 'error', 'console.error:  '),
+    depend: ap(log, 'info',  'console.info:   ','preparing dependency id#'),
+};
+
+const reset = function() {
+    inputElement.value    = '';
+    outputElement.value   = '';
+    infoElement.innerHTML = '';
+    outputElement.value += helpContents;
+    infoElement.innerHTML += '<pre class="info">' + aboutContents + '</pre>';
 }
 
-function print_output() {
+const print_output = function() {
     outputElement.value = FS.readFile("/out", { encoding: 'utf8' });
 }
 
-function print_input() {
+const print_input = function() {
     inputElement.value = FS.readFile("/in", { encoding: 'utf8' });
 }
 
-function save_input(str) {
-    FS.writeFile('/in', str ? str : inputElement.value, {flags:'w'});
+const save_input = function(x) {
+    var input = x ? x : inputElement.value;
+    FS.writeFile('/in', input, {flags:'w'});
 }
 
-function save_output() {
-    FS.writeFile('/out', str ? str : outputElement.value, {flags:'w'});
+const save_output = function(x) {
+    var output = x ? x : outputElement.value;
+    FS.writeFile('/out', output, {flags:'w'});
 }
 
-var run_function;
-function post_run() {
-    run_function = function() {
-        save_input(inputElement.value + '\n');
-        Module.asm['_cdecl_function']();
-        print_output();
+const run_function = function(fun) {
+    save_input(inputElement.value + '\n');
+    fun();
+    print_output();
+}
+
+</script>
+
+<script type='text/javascript'>
+var Module = {};
+Module.setStatus = console.info;
+Module.printErr = console.error;
+Module.monitorRunDependencies = console.depend;
+Module.preRun = [];
+Module.postRun = [
+    function () {
+        inputElement.oninput = ap(run_function, Module.asm['_cdecl_function']);
+        runButton.onclick = ap(run_function, Module.asm['_cdecl_function']);
     }
-    inputElement.oninput = run_function;
-}
+];
 
-var Module = {
-    preRun:     [],
-    postRun:    [post_run],
-    printErr:   console.log,
-    setStatus:  print_status,
-    monitorRunDependencies: print_depends,
-};
-
-window.onerror = function(event) {
-    print_status('Exception thrown, see JavaScript console');
-    Module.setStatus = console.log;
-};
+reset();
 
 </script>
 
