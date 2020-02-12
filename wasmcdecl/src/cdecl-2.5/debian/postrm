@@ -1,0 +1,10 @@
+#!/bin/sh -e
+
+if [ "$1" = remove ]; then
+    dpkg-divert --package cdecl --remove --rename \
+	--divert /usr/bin/cdecl.cutils /usr/bin/cdecl
+    dpkg-divert --package cdecl --remove --rename \
+	--divert /usr/share/man/man1/cdecl.cutils.1.gz /usr/share/man/man1/cdecl.1.gz
+fi
+
+#DEBHELPER#

@@ -1,0 +1,17 @@
+Source: cdecl
+Section: devel
+Priority: optional
+Maintainer: Fredrik Hallenberg <hallon@debian.org>
+Standards-Version: 3.9.5
+Build-Depends: debhelper (>=7), bison, flex, libreadline-dev
+
+Package: cdecl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Turn English phrases to C or C++ declarations
+ Cdecl is a program which will turn English-like phrases such as "declare
+ foo as array 5 of pointer to function returning int" into C declarations
+ such as "int (*foo[5])()". It can also translate the C into the pseudo-
+ English. And it handles typecasts, too. Plus C++. And in this version
+ it has command line editing and history with the GNU readline library.
+

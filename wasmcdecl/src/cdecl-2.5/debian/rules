@@ -1,0 +1,6 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_install:
+	$(MAKE) install BINDIR=debian/cdecl/usr/bin MANDIR=debian/cdecl/usr/share/man/man1

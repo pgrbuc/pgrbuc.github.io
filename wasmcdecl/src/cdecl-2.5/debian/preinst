@@ -1,0 +1,31 @@
+#!/bin/sh -e
+
+if [ "$1" = upgrade ]; then
+    if [ -n "`dpkg-divert --list | grep /usr/man/man1/cdecl.1.cutils`" ]; then
+        if [ -f /usr/man/man1/cdecl.1.gz ]; then
+    	    rm /usr/man/man1/cdecl.1.gz
+	fi
+        dpkg-divert --package cdecl --remove --rename \
+	    --divert /usr/man/man1/cdecl.1.cutils.gz /usr/man/man1/cdecl.1.gz
+        dpkg-divert --package cdecl --add --rename \
+   	    --divert /usr/share/man/man1/cdecl.cutils.1.gz /usr/share/man/man1/cdecl.1.gz
+    fi
+    if [ -n "`dpkg-divert --list | grep /usr/share/man/man1/cdecl.1.cutils`" ]; then
+        if [ -f /usr/share/man/man1/cdecl.1.gz ]; then
+    	    rm /usr/share/man/man1/cdecl.1.gz
+	fi
+        dpkg-divert --package cdecl --remove --rename \
+	    --divert /usr/share/man/man1/cdecl.1.cutils.gz /usr/share/man/man1/cdecl.1.gz
+        dpkg-divert --package cdecl --add --rename \
+   	    --divert /usr/share/man/man1/cdecl.cutils.1.gz /usr/share/man/man1/cdecl.1.gz
+    fi
+fi
+
+if [ "$1" = install ]; then
+    dpkg-divert --package cdecl --add --rename \
+	--divert /usr/bin/cdecl.cutils /usr/bin/cdecl
+    dpkg-divert --package cdecl --add --rename \
+	--divert /usr/share/man/man1/cdecl.cutils.1.gz /usr/share/man/man1/cdecl.1.gz
+fi
+
+#DEBHELPER#
