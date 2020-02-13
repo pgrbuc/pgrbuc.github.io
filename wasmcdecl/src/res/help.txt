@@ -1,5 +1,4 @@
-const helpContents =
-`Type in other text area to begin
+Type in other text area to begin
 
 Type 'help' or '?' to print cdecl's built in help prompt
 
@@ -25,26 +24,3 @@ Remember cdecl only recognizes text in the following forms:
     __ function returning __
     __ array of __
     __ array 16 of __
-`;
-
-const aboutContents = `
-#########################
-##        CDECL        ##
-#########################
-Originally written by
-    Graham Ross
-
-Improved and expanded by
-    David Wolverton
-    Tony Hanse
-    and Merlyn LeRoy
-
-GNU readline support and
-Linux port by
-    David R. Conrad
-
-WebAssembly port by
-    Peter Buchanan
-
-`;
-

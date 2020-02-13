@@ -1,0 +1,18 @@
+#########################
+##        CDECL        ##
+#########################
+Originally written by
+    Graham Ross
+
+Improved and expanded by
+    David Wolverton
+    Tony Hanse
+    Merlyn LeRoy
+
+GNU readline support and
+Linux port by
+    David R. Conrad
+
+WebAssembly port by
+    Peter Buchanan
+

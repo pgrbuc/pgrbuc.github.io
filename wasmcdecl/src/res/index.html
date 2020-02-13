@@ -1,0 +1,190 @@
+<!doctype html>
+<head>
+    <title>CDECL</title>
+    <meta charset="UTF-8" name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+    <style id="style"></style>
+</head>
+<body id="body"> <script type="text/javascript">
+'use strict';
+
+/*
+ *  Base64 Encoded Constants
+ *
+ *  I like Javascript's async file stuff, but having everything in a single
+ *  file is pretty neat becuase you can just save this one html page to your
+ *  computer or add it to your phones offline reading list and still run it
+ *  without an internet connection.
+ *
+ *  That being said a lot of this didn't need to be base64 encoded, but the
+ *  newlines and binary data in the files made it a long and tall mess, while
+ *  now it's just a very long mess as long as you turn off word wrap.
+ *
+ *  I didn't have a reason for base64 encoding the style sheet and all of the
+ *  html, kind of just think it's funny that you can load both from a string.
+ */
+const StyleCssContents   = atob('#INCLUDE_ME "b64/style.css"');
+const BodyHtmlContents   = atob('#INCLUDE_ME "b64/body.html"');
+const ModuleWasmContents = atob('#INCLUDE_ME "b64/module.wasm"');
+const AboutTxtContents   = atob('#INCLUDE_ME "b64/about.txt"');
+const HelpTxtContents    = atob('#INCLUDE_ME "b64/help.txt"');
+const DateTxtContents    = atob('#INCLUDE_ME "b64/date.txt"');
+
+const getId = function(id) { return document.getElementById(id) };
+
+const StyleElement = getId('style');
+const BodyElement  = getId('body');
+
+StyleElement.innerHTML = StyleCssContents;
+BodyElement.innerHTML  = BodyHtmlContents;
+
+const IoLayer       = getId('io_layer');
+const InputElement  = getId('input_area');
+const OutputElement = getId('output_area');
+
+const InfoLayer     = getId('info_layer');
+const InfoElement   = getId('info_area');
+
+const ControlsLayer = getId('controls_layer');
+const RunButton     = getId('run_button');
+const InfoButton    = getId('info_button');
+
+InputElement.value  = '';
+OutputElement.value = HelpTxtContents;
+
+InfoElement.value   = AboutTxtContents;
+InfoElement.value  += DateTxtContents;
+
+/*
+ *  Partial Application
+ *
+ *  ap takes a function `f` and a number of args less than the full number of
+ *  arguments that `f` takes.
+ *
+ *  ap returns a closure `c` that takes any remaining args then calls `f`
+ *  while passing both sets of arguments.
+ */
+const ap = function() {
+    var c = function() {
+        const local = c;
+        const inner = Array.from(arguments);
+        const arg_array = local.outer.concat(inner);
+        return local.func.apply(null, arg_array);
+    }
+
+    c.func  = arguments[0];
+    c.outer = Array.from(arguments).slice(1);
+
+    return c;
+}
+
+/*
+ *  Info Layer
+ *
+ *  I don't have a mac so it's hard for me to debug web stuff that doesn't
+ *  work on a friends iPhone. The InfoLayer is a floating div that I can
+ *  overide console.log to print messages onto so I can debug from a phone
+ */
+const toggleInfoLayer = function() {
+    const local = toggleInfoLayer;
+
+    if (typeof(local.visible) == 'undefined') {
+        local.visible = true;
+    }
+
+    InfoLayer.className = local.visible ? 'hidden' : 'floating layer';
+    local.visible = !local.visible;
+}
+
+const my_log = function(kind) {
+    const argArray = Array.from(arguments);
+    const argStr   = argArray.join(' ');
+
+    if (arguments.length != 0)
+        InfoElement.value += argStr + '...\n';
+};
+
+const console = {
+    log   : ap(my_log, 'console.log:   '),
+    info  : ap(my_log, 'console.info:  '),
+    warn  : ap(my_log, 'console.warn:  '),
+    error : ap(my_log, 'console.error: '),
+};
+
+/*
+ *  Emscripten IO
+ *
+ *  It's a bit of a pain in the ass to write Javascript strings to the wasm
+ *  heap/stack, churn through it using wasm bytecode program, then read the
+ *  result back into a Javascript string.
+ *
+ *  For me the easiest way to pass strings over the wasm boundry is by using
+ *  Emscripten's virtual filesystem API. It's a bit counter-intuitive
+ *  (especially for a C programmer) to constantly be writing / reading strings
+ *  out to a virtual disk, but as far as I know, your not writing to physical
+ *  disk any more than your web browser would normally.
+ *
+ *  Emscripten's virtual filesytem API bindings for C replace stdio.h file
+ *  functions (fopen, fwrite, fread), and it's Javascript API bindings are
+ *  their own thing, but pretty straight forward.
+ *
+ *  `cdecl` already supports reading commands from a file and writing the
+ *  output to another file, so porting was just adding a few lines of C code
+ *  to open and read and write from specific files ('/in' and '/out') and a
+ *  dozen more lines of Javascript that:
+ *     -Saves web browser ui text to 'in'
+ *     -Calls the wasm bytecode func that reads from 'in' and writes to 'out'
+ *     -Reads the 'out' file back into the web browser ui
+ */
+
+const saveInput = function(x) {
+    const input = x ? x : InputElement.value;
+    FS.writeFile('/in', input, {flags:'w'});
+}
+
+const runFunction = function(fun) {
+    saveInput(InputElement.value + '\n');
+    fun();
+    printOutput();
+}
+
+const printOutput = function() {
+    OutputElement.value = FS.readFile('/out', {encoding: 'utf8'});
+}
+
+
+const main = function(module, fs) {
+
+    InputElement.oninput = ap(runFunction, module.asm['_cdecl_function']);
+    RunButton.onclick = ap(runFunction, module.asm['_cdecl_function']);
+    InfoButton.onclick = toggleInfoLayer;
+    console.info('done');
+    setTimeout(toggleInfoLayer, 1500);
+}
+
+const emscriptenModuleConfig = function(module, vfs) {
+    module.printErr = console.error;
+    module.setStatus = console.info;
+    module.monitorRunDependencies = ap(console.info, 'preparing dependency id#');
+
+    module.preRun  = [];
+    module.postRun = [ap(main, module, vfs)];
+
+    module.instantiateWasm = function(info, receive) {
+        const wasmArrayArr = Uint8Array.from(ModuleWasmContents, c => c.charCodeAt(0));
+        const wasmArrayBuf = wasmArrayArr.buffer;
+        const wasmPromise  = WebAssembly.instantiate(wasmArrayBuf, info);
+        wasmPromise.then(res => receive(res['instance']));
+    }
+    return module;
+}
+
+var Module = {};
+var FS     = {};
+
+emscriptenModuleConfig(Module, FS);
+
+#INCLUDE_ME "module.js"
+
+</script></body>
+
+</html>

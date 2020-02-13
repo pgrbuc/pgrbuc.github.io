@@ -1,0 +1,44 @@
+0a1,7
+> #include <emscripten.h>
+> #include <locale.h>
+> 
+> int fileno(FILE *stream);
+> int yylex(void);
+> int original_main(int argc, char **argv);
+> 
+128c135
+<   int main(int, char **);
+---
+>   int original_main(int, char **);
+1247c1254
+< int main(argc, argv)
+---
+> int original_main(argc, argv)
+1313a1321,1346
+> #define global      EMSCRIPTEN_KEEPALIVE
+> #define internal    static
+> 
+> extern int DebugFlag;
+> extern int yydebug;
+> 
+> internal void fcreate(const char*fp)
+> {
+>     fclose(fopen(fp,  "w+"));
+> }
+> 
+> global void cdecl_function(void)
+> {
+>     yyin  = freopen("/in", "r", stdin);
+>     yyout = freopen("/out", "w", stdout);
+>     yyrestart(yyin);
+>     yyparse();
+> }
+> 
+> global int main(int argc, char **argv)
+> {
+>     setlocale(LC_CTYPE, "en_US.UTF-8");
+>     fcreate("/in");
+>     fcreate("/out");
+>     return 0;
+> }
+> 
