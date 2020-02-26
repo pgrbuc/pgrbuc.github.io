@@ -2,25 +2,28 @@ Type in other text area to begin
 
 Type 'help' or '?' to print cdecl's built in help prompt
 
--------- Examples --------
+------- Grammar Hints ------
 
- - explain int*(*x)(int)
-    declare x as pointer to function (int) returning pointer to int
+declare x as ...
+... pointer to ...
+... ptr to ...
+... function returning ...
+... function(a,b) returning .
+... func(a,b) returning ...
+... array of ...
+... array 16 of ...
 
- - declare x as static const pointer to volatile int
-    static volatile int * const x
+--------- Examples ---------
 
- - declare fp as pointer to function(int) returning pointer to array 16 of int
-    int (*(*fun)(int ))[16]
+IN>   explain int*(*x)(int)
+OUT>  declare x as pointer to function (int) returning pointer to int
 
- - declare fp as ptr to func(int) returning ptr to array 16 of int
-    int (*(*fun)(int ))[16]
+IN>   declare x as static const pointer to volatile int
+OUT>  static volatile int * const x
 
--------- Grammar Hints --------
+IN>   declare fp as pointer to function(int) returning pointer to array 16 of int
+OUT>  int (*(*fp)(int ))[16]
 
-Remember cdecl only recognizes text in the following forms:
-    declare ____ as
-    __ pointer to __
-    __ function returning __
-    __ array of __
-    __ array 16 of __
+IN>   declare fp as ptr to func(int) returning ptr to array 16 of int
+OUT>  int (*(*fp)(int ))[16]
+

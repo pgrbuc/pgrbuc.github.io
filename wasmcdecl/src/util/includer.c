@@ -113,37 +113,48 @@ output_c(const int c)
     }
 }
 
+extern volatile int *trash;
+internal int break_me()
+{
+    *trash = 0;
+    return 0;
+}
+volatile int junk;
+volatile int *trash = &junk;
+
 internal int
 include_hit(file_t *fil)
 {
     local_persist const char inc[]   = "#" "INCLUDE_ME ";
     local_persist const uint inc_len = sizeof(inc) - 1;
 
-    const uint buf_len     = fil->len - fil->i;
-    const uint starts      = buf_len > inc_len;
-    const uint quote_start = fil-> i + inc_len;
-    uint ends  = 0;
+    const uint buf_len  = fil->len - fil->i;
+    const uint starts   = buf_len > inc_len;
+    const char *buf     = fil->buffer + ((fil->i)+inc_len);
 
     /* check for partial hit ie "#INC\0" matches */
     if (0 != strncmp(inc, fil->buffer + fil->i, MIN(inc_len, buf_len)))
         return 0;
 
+    uint ends  = 0;
+
     /* increment until end of buffer or end of quote */
-    for (uint i = quote_start+1; i <= buf_len; i++) {
-        if (fil->buffer[i] == '"') {
-            ends = 1; 
+    for (uint i = 1; i <= buf_len; i++) {
+        if (buf[i] == '"') {
+            ends = 1;
 
             /* TODO fix this bandaid for off by one error elsewhere */
-            ends = i < BUFFER-1; 
+            ends = i < BUFFER-1;
             break;
-        } 
+        }
     }
 
+    if (buf_len == 51) break_me();
     //debugf("\n%d %d %d %d", buf_len, starts, ends, !feof(fil->fp));
     //debugf("%.*s", MIN(30, buf_len), fil->buffer + fil->i);
-    
+
     /* check if complete hit */
-    if (starts && ends) 
+    if (starts && ends)
         return 1;
 
     /* if no more input to read no hit, then a partial hit means nada */
@@ -167,7 +178,7 @@ extract_filename_from_include(file_t *new, file_t *fil)
 
     /* skip include directive */
     while (src[i] != '"') {
-        if (src[i] == '\0') 
+        if (src[i] == '\0')
             errf("%s", "Bug in program, got a directive hit incorrectly");
         i++;
     }

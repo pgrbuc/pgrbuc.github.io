@@ -1,7 +1,8 @@
 <!doctype html>
 <head>
     <title>CDECL</title>
-    <meta charset="UTF-8" name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
+    <meta charset="UTF-8">
     <style id="style"></style>
 </head>
 <body id="body"> <script type="text/javascript">
@@ -29,30 +30,25 @@ const AboutTxtContents   = atob('#INCLUDE_ME "b64/about.txt"');
 const HelpTxtContents    = atob('#INCLUDE_ME "b64/help.txt"');
 const DateTxtContents    = atob('#INCLUDE_ME "b64/date.txt"');
 
-const getId = function(id) { return document.getElementById(id) };
-
-const StyleElement = getId('style');
-const BodyElement  = getId('body');
+const StyleElement = document.getElementById('style');
+const BodyElement  = document.getElementById('body');
 
 StyleElement.innerHTML = StyleCssContents;
 BodyElement.innerHTML  = BodyHtmlContents;
 
-const IoLayer       = getId('io_layer');
-const InputElement  = getId('input_area');
-const OutputElement = getId('output_area');
+const IoLayer       = document.getElementById('io_layer');
+const InputElement  = document.getElementById('input_area');
+const OutputElement = document.getElementById('output_area');
 
-const InfoLayer     = getId('info_layer');
-const InfoElement   = getId('info_area');
+const InfoLayer     = document.getElementById('info_layer');
+const InfoElement   = document.getElementById('info_area');
 
-const ControlsLayer = getId('controls_layer');
-const RunButton     = getId('run_button');
-const InfoButton    = getId('info_button');
+const LogLayer      = document.getElementById('log_layer');
+const LogElement    = document.getElementById('log_area');
 
-InputElement.value  = '';
-OutputElement.value = HelpTxtContents;
-
-InfoElement.value   = AboutTxtContents;
-InfoElement.value  += DateTxtContents;
+const ControlsLayer = document.getElementById('controls_layer');
+const InfoButton    = document.getElementById('info_button');
+const LogButton     = document.getElementById('log_button');
 
 /*
  *  Partial Application
@@ -77,37 +73,65 @@ const ap = function() {
     return c;
 }
 
+const textareaReset  = function(elem) {
+    elem.value = '';
+}
+
+const textareaAppend  = function(elem) {
+    const argArray = Array.from(arguments).slice(1);
+    const argStr   = argArray.join('');
+    elem.value += argStr;
+}
+
+const fancytextReset  = function(elem) {
+    elem.innerHTML = '';
+}
+
+const fancytextAppend = function(elem) {
+    const argArray = Array.from(arguments).slice(1);
+    const argStr   = argArray.join('');
+    elem.innerHTML += '<pre>' + argStr + '</pre>';
+}
+
 /*
  *  Info Layer
  *
  *  I don't have a mac so it's hard for me to debug web stuff that doesn't
- *  work on a friends iPhone. The InfoLayer is a floating div that I can
+ *  work on a borrowed iPhone. The InfoLayer is a floating div that I can
  *  overide console.log to print messages onto so I can debug from a phone
  */
-const toggleInfoLayer = function() {
-    const local = toggleInfoLayer;
+const toggleLayer = function(layer) {
+    const ls = toggleLayer;
+    const i = layer.id;
 
-    if (typeof(local.visible) == 'undefined') {
-        local.visible = true;
+    if (ls.visible === undefined) {
+        ls.visible = {};
     }
 
-    InfoLayer.className = local.visible ? 'hidden' : 'floating layer';
-    local.visible = !local.visible;
+    if (ls.visible[i] === undefined) {
+        ls.visible[i] = layer.className != 'hidden';
+    }
+
+    layer.className = ls.visible[i] ? 'hidden' : 'layer floating';
+    ls.visible[i] = !ls.visible[i];
 }
+
+var toggleInfoLayer = ap(toggleLayer, InfoLayer);
+var toggleLogLayer  = ap(toggleLayer, LogLayer);
 
 const my_log = function(kind) {
     const argArray = Array.from(arguments);
-    const argStr   = argArray.join(' ');
+    const logType  = String(arguments[0])
+    const logBody  = Array.from(arguments).slice(1).join(' ');
 
-    if (arguments.length != 0)
-        InfoElement.value += argStr + '...\n';
+    if (logBody.length != 0)
+        textareaAppend(LogElement, logType, logBody, '...\n');
 };
-
 const console = {
-    log   : ap(my_log, 'console.log:   '),
-    info  : ap(my_log, 'console.info:  '),
-    warn  : ap(my_log, 'console.warn:  '),
-    error : ap(my_log, 'console.error: '),
+    log   : ap(my_log, 'LOG:   '),
+    info  : ap(my_log, 'INFO:  '),
+    warn  : ap(my_log, 'WARN:  '),
+    error : ap(my_log, 'ERROR: '),
 };
 
 /*
@@ -148,17 +172,45 @@ const runFunction = function(fun) {
 }
 
 const printOutput = function() {
-    OutputElement.value = FS.readFile('/out', {encoding: 'utf8'});
+    textareaReset(OutputElement);
+    textareaAppend(OutputElement, FS.readFile('/out', {encoding: 'utf8'}));
 }
 
+const init = function () {
+    /*
+     *  Initialization / Reinitializations
+     *
+     *  Text areas hold onto their text even after refreshing.  If they should
+     *  be empty or have any default text after a refresh, they need to be
+     *  explicitly set.
+     *
+     */
+    textareaReset(InputElement);
+
+    textareaReset(OutputElement);
+    textareaAppend(OutputElement, HelpTxtContents);
+
+    textareaReset(InfoElement);
+    textareaAppend(InfoElement, AboutTxtContents);
+    textareaAppend(InfoElement, DateTxtContents);
+
+    textareaReset(LogElement);
+}
 
 const main = function(module, fs) {
+    /*
+     * Right now emscripten supports two backends that export c symbols
+     * differently. TODO these checks shouldn't be needed after a while.
+     */
+    const oldFun = module.asm['_cdecl_function'];
+    const newFun = module.asm['cdecl_function'];
+    const cdecl = oldFun ? oldFun : newFun;
 
-    InputElement.oninput = ap(runFunction, module.asm['_cdecl_function']);
-    RunButton.onclick = ap(runFunction, module.asm['_cdecl_function']);
+    InputElement.oninput = ap(runFunction, cdecl);
     InfoButton.onclick = toggleInfoLayer;
+    LogButton.onclick = toggleLogLayer;
     console.info('done');
-    setTimeout(toggleInfoLayer, 1500);
+    setTimeout(toggleLogLayer, 1500);
 }
 
 const emscriptenModuleConfig = function(module, vfs) {
@@ -172,11 +224,18 @@ const emscriptenModuleConfig = function(module, vfs) {
     module.instantiateWasm = function(info, receive) {
         const wasmArrayArr = Uint8Array.from(ModuleWasmContents, c => c.charCodeAt(0));
         const wasmArrayBuf = wasmArrayArr.buffer;
-        const wasmPromise  = WebAssembly.instantiate(wasmArrayBuf, info);
-        wasmPromise.then(res => receive(res['instance']));
+        const wasmCatch    = function(err) { console.error(err); }
+        const wasmPromise  = WebAssembly.instantiate(wasmArrayBuf, info).catch(wasmCatch);
+
+        wasmPromise.then(function(result) {
+            if (result && result['instance'])
+                receive(result['instance']);
+        });
     }
     return module;
 }
+
+init();
 
 var Module = {};
 var FS     = {};

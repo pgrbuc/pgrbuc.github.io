@@ -73,7 +73,7 @@ res/module.js: res/module.html
 ################################
 
 ALL    += res/date.txt
-res/date.txt:
+res/date.txt: res/index.html res/style.css
 	printf "Built on " > $@;
 	date +"%D at %r" >> $@;
 	printf "\n" >> $@;
@@ -103,4 +103,7 @@ clean:
 	rm -rf $(ALL)
 
 install: $(ALL) index.html
-	cp index.html ..
+	cp index.html ../test.html
+
+push: $(ALL) index.html
+	cp index.html ../index.html

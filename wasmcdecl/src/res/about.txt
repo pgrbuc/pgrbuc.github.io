@@ -1,6 +1,3 @@
-#########################
-##        CDECL        ##
-#########################
 Originally written by
     Graham Ross
 
@@ -13,6 +10,6 @@ GNU readline support and
 Linux port by
     David R. Conrad
 
-WebAssembly port by
+WebAssembly frontend by
     Peter Buchanan
 

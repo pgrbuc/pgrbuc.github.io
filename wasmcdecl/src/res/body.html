@@ -1,15 +1,58 @@
-<div class="background layer"></div>
+<div class="layer background" id="background_layer"></div>
 
-<div class="floating layer" id="io_layer">
-    <textarea class="in inborder textarea" id="input_area"></textarea>
-    <textarea class="out outborder textarea" id="output_area"></textarea>
+<div class="layer floating" id="io_layer">
+
+    <div id="input_border">
+        <div class="border bg"> <div class="border in"> <div class="border bg">
+            <div class="label in_r"> Input </div>
+            <textarea spellcheck=false class="textarea bg" id="input_area"></textarea>
+        </div> </div> </div>
+    </div>
+
+    <div id="output_border">
+        <div class="border bg"> <div class="border out"> <div class="border bg">
+            <div class="label out_r"> Output </div>
+            <textarea spellcheck=false class="textarea bg" id="output_area"></textarea>
+        </div> </div> </div>
+    </div>
+
 </div>
 
-<div class="floating layer" id="info_layer">
-    <textarea class="info infoborder textarea" id="info_area"></textarea>
+<div class="hidden" id="info_layer">
+
+    <div id="info_border">
+        <div class="border bg"> <div class="border info"> <div class="border bg">
+            <div class="label info_r"> About CDECL </div>
+            <textarea spellcheck=false class="textarea bg" id="info_area"></textarea>
+        </div> </div> </div>
+    </div>
+
 </div>
 
-<div class="floating layer" id="controls_layer">
-    <button class="hidden infoborder run button" id="run_button">Run</button>
-    <button class="info infoborder button" id="info_button">Info</button>
+<div class="layer floating" id="log_layer">
+
+    <div id="log_border">
+        <div class="border bg"> <div class="border log"> <div class="border bg">
+            <div class="label log_r"> Debug Log </div>
+            <textarea spellcheck=false class="textarea bg" id="log_area"></textarea>
+        </div> </div> </div>
+    </div>
+
 </div>
+
+<div class="layer floating" id="controls_layer">
+
+    <div id="log_button">
+        <div class="border bg"> <div class="border log"> <div class="border bg">
+            <div class="button bg"> Log </div>
+        </div> </div> </div>
+    </div>
+
+    <div id="info_button">
+        <div class="border bg"> <div class="border info"> <div class="border bg">
+            <div class="button bg"> Info </div>
+        </div> </div> </div>
+    </div>
+
+</div>
+
