@@ -185,7 +185,7 @@ const printOutput = function() {
 const genShareLink = function() {
     const url = new URL(window.location.href);
     const input = InputElement.value;
-    var path  = url.protocol + '//' + url.pathname;
+    var path  = url.protocol + '//' + url.href;
 
     if (input) {
         path += '?decl=' + btoa(input);
