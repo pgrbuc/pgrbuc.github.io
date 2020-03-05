@@ -1,7 +1,9 @@
 .DEFAULT_GOAL = all
 ALL     =
 
-CFLAGS     ?= --std=c99 -O0 -g -Wall -Wextra -Wpedantic
+CFLAGS     ?= --std=c99 -Wall -Wextra -Wpedantic
+CFLAGS     += -O3 -DNDEBUG -march=native
+#CFLAGS     += -O0
 
 # Emscripten
 ECC        ?= emcc
@@ -12,7 +14,7 @@ ECFLAGS    ?= --std=c99 -O2 -w -s NO_EXIT_RUNTIME=1 -DWASM -s WASM=1
 ################################
 
 util/%: util/%.c
-	$(CC) $(CFLAGS) -DPREDICT $< -o $@
+	$(CC) $(CFLAGS) $< -o $@
 
 ALL    += util/base64
 util/base64:    util/base64.c
@@ -28,7 +30,7 @@ ALL    += res/b64/
 res/b64/:
 	mkdir -p $@
 
-res/b64/%: res/%
+res/b64/%: res/% util/base64
 	./util/base64 $< > $@;
 
 ################################

@@ -1,68 +1,47 @@
 #include <stdio.h>
-
-#define errf(fmt, ...) \
-do { fprintf(stderr, fmt "\n", __VA_ARGS__); exit(EXIT_FAILURE); } while (0)
-
-#define perrf(fmt, ...) \
-do { fprintf(stderr, fmt ": ", __VA_ARGS__); perror(""); exit(EXIT_FAILURE); } while (0)
+#include <stdint.h>
 
 #define global
 #define local_persist static
 #define internal static
 
 typedef unsigned char uchar;
-typedef unsigned int  uint;
-typedef unsigned long ulong;
-
-/*
- * The input buffer feeds 3 bytes per loop, and the output buffer is fed 4
- * bytes per loop, so BUFFER needs to be defined as being a multiple of 3 AND
- * 4 so that you don't have to flush the output or read more input in the
- * middle of a loop.
- */
-
-#define BUFFER (1024 * 3 * 4)
-
-/*
- * These built-ins didn't do a whole lot, but rearranging the code so that
- * they _could_ be used sped things up significantly. IE, writing a fast
- * branch and a slow branch and branching based on a test that gives a 0 or 1.
- */
-
-#ifdef PREDICT
-    #define likely(x) __builtin_expect((x),1)
-    #define unlikely(x) __builtin_expect((x),0)
-    #define unreachable() __builtin_unreachable()
-#else
-    #define likely(x) (x)
-    #define unlikely(x) (x)
-    #define unreachable()
-#endif
+typedef uint_fast32_t uint;
 
 /*******************************************************************************
- ** Buffered Input                                                           |||
+ ** Base 64 encoder                                                          |||
  ******************************************************************************/
 
-internal uint
-input_buffer(FILE *fp, uchar **buffer)
+global void
+base64(FILE *in, FILE *out)
 {
-    local_persist uint len = 0;
-    local_persist uchar buf[BUFFER];
-    len = fread(buf, 1, BUFFER, fp);
-    *buffer = buf;
-    return len;
-}
+    /*
+     * Base64 encoding takes 8-bit octets and outputs them as ascii letters
+     * that represents 6-bit sextets.
+     *
+     * If the number of input octets are a round multiple of three, then the
+     * number of output sextets is a round multiple of four since:
+     *
+     *      3octets  * 8bits = 24bits_total
+     *      4sextets * 6bits = 24bits_total
+     *
+     * Knowing the output size is a fixed percent of the input size, and
+     * setting the buffer sizes appropriately allows the innermost loop of
+     * this function to not worry about filling, overflowing, or flushing the
+     * output buffer.
+     *
+     */
 
-/*******************************************************************************
- ** Buffered Output                                                          |||
- ******************************************************************************/
+    enum const_vals {
+        BUFFER_SIZE = 4096,
+        INBUFFER  = BUFFER_SIZE * 3,
+        OUTBUFFER = BUFFER_SIZE * 4,
+    };
 
-enum { OUTPUT_PAD = 64, OUTPUT_FLUSH = 65 };
+    local_persist uchar input_buffer[INBUFFER+2];
+    local_persist uchar output_buffer[OUTBUFFER];
 
-internal void
-output_sextet(uchar sextet)
-{
-    local_persist const uchar output_lookup[] = {
+    local_persist uchar lookup[] = {
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
         'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
         'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
@@ -71,70 +50,101 @@ output_sextet(uchar sextet)
         'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
         'w', 'x', 'y', 'z', '0', '1', '2', '3',
         '4', '5', '6', '7', '8', '9', '+', '/',
-        '=', '\0',
     };
 
-    local_persist uchar output_buffer[BUFFER];
-    local_persist uint i = 0;
+    while (!(feof(in) || ferror(in))) {
+        uint len;
+        uint output_len;
 
-    output_buffer[i++] = output_lookup[sextet];
+        len = fread(input_buffer, 1, INBUFFER, in);
 
-    if (i == (BUFFER-1) || sextet == OUTPUT_FLUSH) {
-        i -= (sextet == OUTPUT_FLUSH);
+        /*
+         * One catch is that if the number of input octets isn't a round
+         * multiple of three, then the number of output sextets isn't a round
+         * multiple of four. Base64 specifies that the number of encoded
+         * sextets be a round multiple of four where:
+         *
+         *  A)  partial sextets that only have 4 or 2 bits from the input
+         *      octets have the remaining of their lsb's zeroed.
+         *
+         *  B)  sextets that have don't have any bits from input octets
+         *      are encoded as the letter "=" as padding.
+         *
+         *              MSB  0 .......8   ......16   ......24  LSB
+         *      3octets:       xxxxxxxx   yyyyyyyy   zzzzzzzz
+         *      4sextets:      xxxxxx  xxyyyy  yyyyzz  zzzzzz
+         *              MSB  0 .....6  ....12  ....18  ....24  LSB
+         *
+         *              MSB  0 .......8   ......16   ......24  LSB
+         *      2octets:       xxxxxxxx   yyyyyyyy   --------
+         *      4sextets:      xxxxxx  xxyyyy  yyyy00  <pad=>
+         *              MSB  0 .....6  ....12  ....18  ....24  LSB
+         *
+         *              MSB  0 .......8   ......16   ......24  LSB
+         *      1octets:       xxxxxxxx   --------   --------
+         *      4sextets:      xxxxxx  xx0000  <pad=>  <pad=>
+         *              MSB  0 .....6  ....12  ....18  ....24  LSB
+         *
+         * Instead of writing different expressions inside the innermost loop
+         * to encode the four sextets differently depending on how many octets
+         * were read, this function uses the same expression for all cases.
+         *
+         * This works because it zeros out a few trailing input octets past
+         * the ones that are read so that the partial sextets are encoded
+         * correctly, and because the number of valid sextets and the number
+         * of padding sextets are known.
+         *
+         * Essentially it is ok for the innermost loop to generate a few extra
+         * sextets because we were already only going to print up to the last
+         * valid one, then print padding sextets.
+         */
 
-        fwrite(output_buffer, 1, i, stdout);
-        i = 0;
-    }
-}
+        input_buffer[len] = 0;
+        input_buffer[len+1] = 0;
 
-/*******************************************************************************
- ** Base 64 encoder                                                          |||
- ******************************************************************************/
-
-internal void
-base64(FILE *fp)
-{
-    ulong byt;
-    uchar *buf;
-    uint input_len = 0;
-
-    if (0 == (input_len = input_buffer(fp, &buf))) {
-        return;
-    }
-
-    while (1) {
-        if (likely(input_len >= 3)) {
-            byt = (buf[0] << 16) | (buf[1] << 8) | buf[2];
-            output_sextet((byt >> 18) & 0x3f);
-            output_sextet((byt >> 12) & 0x3f);
-            output_sextet((byt >>  6) & 0x3f);
-            output_sextet((byt >>  0) & 0x3f);
-            buf       += 3;
-            input_len -= 3;
-            continue;
-        } else if (unlikely(input_len == 2)) {
-            byt = (buf[0] << 16) | (buf[1] << 8);
-            output_sextet((byt >> 18) & 0x3f);
-            output_sextet((byt >> 12) & 0x3f);
-            output_sextet((byt >>  6) & 0x3f);
-            output_sextet(OUTPUT_PAD);
+        switch (len % 3) {
+          case 1:
+            output_len = ((len+2)*4)/3;
+            output_len -= 2; /* adjusted for the 2 pad chars later */
             break;
-        } else if (unlikely(input_len == 1)) {
-            byt = (buf[0] << 16);
-            output_sextet((byt >> 18) & 0x3f);
-            output_sextet((byt >> 12) & 0x3f);
-            output_sextet(OUTPUT_PAD);
-            output_sextet(OUTPUT_PAD);
+          case 2:
+            output_len = ((len+1)*4)/3;
+            output_len -= 1; /* adjusted for the 1 pad char later */
             break;
-        } else if (unlikely(input_len == 0)) {
-            if (0 == (input_len = input_buffer(fp, &buf))) {
-                break;
-            }
-            continue;
+          default:
+            output_len = ((len+0)*4)/3;
+            break;
         }
-    }
 
-    output_sextet(OUTPUT_FLUSH);
+        /*
+         * One last thing, instead of looping over n input octets, the
+         * innermost loop a constant number of times every time.
+         *
+         * The idea was that maybe the compiler would have more options for
+         * for loop unrolling or auto-vectorization, and maybe having one path
+         * for the innermost loop would help with branch prediction misses.
+         */
+
+        for (uint i=0; i < BUFFER_SIZE; i++) {
+            const uint j   = i*3;
+            const uint k   = i*4;
+            const uint byt = ((input_buffer[j+0] << 16) | (input_buffer[j+1] << 8) | (input_buffer[j+2]));
+
+            output_buffer[k+0] = lookup[(byt >> 18) & 0x3f];
+            output_buffer[k+1] = lookup[(byt >> 12) & 0x3f];
+            output_buffer[k+2] = lookup[(byt >>  6) & 0x3f];
+            output_buffer[k+3] = lookup[(byt >>  0) & 0x3f];
+        }
+
+        /*
+         * Pad output to be divisible by four and flush.
+         */
+        while ((output_len % 4) != 0) {
+            output_buffer[output_len++] = '=';
+        }
+
+        fwrite(output_buffer, 1, output_len, out);
+    }
 
     return;
 }
@@ -143,25 +153,27 @@ base64(FILE *fp)
  ** Main                                                                     |||
  ******************************************************************************/
 
-int
+global int
 main(int argc, char **argv)
 {
-    FILE *fp = NULL;
+    FILE *in  = NULL;
+    FILE *out = NULL;
 
     if (argc >= 2) {
-        if (NULL == (fp = fopen(argv[1], "r"))) {
+        if (NULL == (in = fopen(argv[1], "r"))) {
             fprintf(stderr, "Couldn't open file '%s': ", argv[1]);
             perror("");
-            return -1;
+            return 0;
         }
     } else {
-        fp = stdin;
+        in = stdin;
     }
+    out = stdout;
 
-    setvbuf(fp,  NULL, _IONBF, 0);
-    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(in, NULL, _IONBF, 0);
+    setvbuf(out, NULL, _IONBF, 0);
 
-    base64(fp);
+    base64(in, out);
 
     return 0;
 }
