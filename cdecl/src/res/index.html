@@ -23,12 +23,12 @@
  *  I didn't have a reason for base64 encoding the style sheet and all of the
  *  html, kind of just think it's funny that you can load both from a string.
  */
-const StyleCssContents   = atob('#INCLUDE_ME "b64/style.css"');
-const BodyHtmlContents   = atob('#INCLUDE_ME "b64/body.html"');
-const ModuleWasmContents = atob('#INCLUDE_ME "b64/module.wasm"');
-const AboutTxtContents   = atob('#INCLUDE_ME "b64/about.txt"');
-const HelpTxtContents    = atob('#INCLUDE_ME "b64/help.txt"');
-const DateTxtContents    = atob('#INCLUDE_ME "b64/date.txt"');
+const StyleCssContents   = atob('#B64_INCLUDE "style.css"');
+const BodyHtmlContents   = atob('#B64_INCLUDE "body.html"');
+const ModuleWasmContents = atob('#B64_INCLUDE "module.wasm"');
+const AboutTxtContents   = atob('#B64_INCLUDE "about.txt"');
+const HelpTxtContents    = atob('#B64_INCLUDE "help.txt"');
+const DateTxtContents    = atob('#B64_INCLUDE "date.txt"');
 
 const StyleElement = document.getElementById('style');
 const BodyElement  = document.getElementById('body');
@@ -46,9 +46,13 @@ const InfoElement   = document.getElementById('info_area');
 const LogLayer      = document.getElementById('log_layer');
 const LogElement    = document.getElementById('log_area');
 
+const ShareLayer    = document.getElementById('share_layer');
+const ShareElement  = document.getElementById('share_area');
+
 const ControlsLayer = document.getElementById('controls_layer');
 const InfoButton    = document.getElementById('info_button');
 const LogButton     = document.getElementById('log_button');
+const ShareButton   = document.getElementById('share_button');
 
 /*
  *  Partial Application
@@ -73,11 +77,13 @@ const ap = function() {
     return c;
 }
 
-const textareaReset  = function(elem) {
-    elem.value = '';
+const textareaSet = function(elem) {
+    const argArray = Array.from(arguments).slice(1);
+    const argStr   = argArray.join('');
+    elem.value = argStr;
 }
 
-const textareaAppend  = function(elem) {
+const textareaAdd = function(elem) {
     const argArray = Array.from(arguments).slice(1);
     const argStr   = argArray.join('');
     elem.value += argStr;
@@ -87,7 +93,7 @@ const fancytextReset  = function(elem) {
     elem.innerHTML = '';
 }
 
-const fancytextAppend = function(elem) {
+const fancytextAdd = function(elem) {
     const argArray = Array.from(arguments).slice(1);
     const argStr   = argArray.join('');
     elem.innerHTML += '<pre>' + argStr + '</pre>';
@@ -116,8 +122,9 @@ const toggleLayer = function(layer) {
     ls.visible[i] = !ls.visible[i];
 }
 
-var toggleInfoLayer = ap(toggleLayer, InfoLayer);
-var toggleLogLayer  = ap(toggleLayer, LogLayer);
+var toggleInfoLayer  = ap(toggleLayer, InfoLayer);
+var toggleLogLayer   = ap(toggleLayer, LogLayer);
+var toggleShareLayer = ap(toggleLayer, ShareLayer);
 
 const my_log = function(kind) {
     const argArray = Array.from(arguments);
@@ -125,7 +132,7 @@ const my_log = function(kind) {
     const logBody  = Array.from(arguments).slice(1).join(' ');
 
     if (logBody.length != 0)
-        textareaAppend(LogElement, logType, logBody, '...\n');
+        textareaAdd(LogElement, logType, logBody, '...\n');
 };
 const console = {
     log   : ap(my_log, 'LOG:   '),
@@ -172,8 +179,32 @@ const runFunction = function(fun) {
 }
 
 const printOutput = function() {
-    textareaReset(OutputElement);
-    textareaAppend(OutputElement, FS.readFile('/out', {encoding: 'utf8'}));
+    textareaSet(OutputElement, FS.readFile('/out', {encoding: 'utf8'}));
+}
+
+const genShareLink = function() {
+    const url = new URL(window.location.href);
+    const input = InputElement.value;
+    var path  = url.href;
+
+    if (input) {
+        path += '?decl=' + btoa(input);
+    }
+
+    textareaSet(ShareElement, path);
+}
+
+const readShareLink = function() {
+    const decl = new URL(window.location.href).searchParams.get("decl");
+
+    if (decl) {
+        try {
+            textareaSet(InputElement, atob(decl));
+        } catch (e) {
+            console.error('Bad URL parameter: ', String(decl));
+            console.error(e);
+        }
+    }
 }
 
 const init = function () {
@@ -185,31 +216,30 @@ const init = function () {
      *  explicitly set.
      *
      */
-    textareaReset(InputElement);
+    textareaSet(InputElement, '');
 
-    textareaReset(OutputElement);
-    textareaAppend(OutputElement, HelpTxtContents);
+    textareaSet(OutputElement, HelpTxtContents);
 
-    textareaReset(InfoElement);
-    textareaAppend(InfoElement, AboutTxtContents);
-    textareaAppend(InfoElement, DateTxtContents);
+    textareaSet(InfoElement, AboutTxtContents);
+    textareaAdd(InfoElement, DateTxtContents);
 
-    textareaReset(LogElement);
+    textareaSet(LogElement, '');
 }
 
 const main = function(module, fs) {
-    /*
-     * Right now emscripten supports two backends that export c symbols
-     * differently. TODO these checks shouldn't be needed after a while.
-     */
-    const oldFun = module.asm['_cdecl_function'];
-    const newFun = module.asm['cdecl_function'];
-    const cdecl = oldFun ? oldFun : newFun;
+    const cdecl = module.asm['cdecl_function'];
+    const run   = ap(runFunction, cdecl);
 
-    InputElement.oninput = ap(runFunction, cdecl);
-    InfoButton.onclick = toggleInfoLayer;
-    LogButton.onclick = toggleLogLayer;
+    InputElement.addEventListener('input', run,  false);
+    InfoButton.addEventListener('click',  toggleInfoLayer,  false);
+    LogButton.addEventListener('click',   toggleLogLayer,   false);
+    ShareButton.addEventListener('click', toggleShareLayer, false);
+    ShareButton.addEventListener('click', genShareLink, false);
     console.info('done');
+
+    readShareLink();
+    if (InputElement.value !== '') run();
+
     setTimeout(toggleLogLayer, 1500);
 }
 
@@ -242,7 +272,7 @@ var FS     = {};
 
 emscriptenModuleConfig(Module, FS);
 
-#INCLUDE_ME "module.js"
+#CAT_INCLUDE "module.js"
 
 </script></body>
 

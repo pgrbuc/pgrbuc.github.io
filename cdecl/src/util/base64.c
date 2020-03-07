@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <stdint.h>
-
-#define global
-#define local_persist static
-#define internal static
-
-typedef unsigned char uchar;
-typedef uint_fast32_t uint;
+#include "prepi.h"
 
 /*******************************************************************************
  ** Base 64 encoder                                                          |||

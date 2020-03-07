@@ -122,12 +122,14 @@ pre {
 .out    { background-color: var(--css-lite-orange); color: var(--css-white); }
 .log    { background-color: var(--css-lite-yellow); color: var(--css-white); }
 .info   { background-color: var(--css-lite-green);  color: var(--css-white); }
+.share  { background-color: var(--css-lite-blue);   color: var(--css-white); }
 
 .bg_r   { background-color: var(--css-white); color: var(--css-bg);          }
 .in_r   { background-color: var(--css-bg);    color: var(--css-lite-red);    }
 .out_r  { background-color: var(--css-bg);    color: var(--css-lite-orange); }
 .log_r  { background-color: var(--css-bg);    color: var(--css-lite-yellow); }
 .info_r { background-color: var(--css-bg);    color: var(--css-lite-green);  }
+.share_r{ background-color: var(--css-bg);    color: var(--css-lite-blue);   }
 
 /* visibility classes */
 
@@ -242,17 +244,22 @@ pre {
     margin:                 2ch 1ch 2ch 1ch;
 }
 
-#info_border {
+#log_border {
     flex-grow:              1;
     margin:                 4ch 2ch 4ch 2ch;
 }
 
-#log_border {
+#info_border {
     flex-grow:              1;
     margin:                 6ch 3ch 6ch 3ch;
 }
 
-#log_button {
+#share_border {
+    flex-grow:              1;
+    margin:                 8ch 4ch 8ch 4ch;
+}
+
+#log_button, #info_button {
     margin:                 0ch 1ch 0ch 0ch;
 }
 

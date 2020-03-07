@@ -2,8 +2,9 @@
 ALL     =
 
 CFLAGS     ?= --std=c99 -Wall -Wextra -Wpedantic
-CFLAGS     += -O3 -DNDEBUG -march=native
-#CFLAGS     += -O0
+CFLAGS     += -Wno-unused-function
+#CFLAGS     += -O3 -DNDEBUG -march=native
+CFLAGS     += -O0 -g
 
 # Emscripten
 ECC        ?= emcc
@@ -19,19 +20,15 @@ util/%: util/%.c
 ALL    += util/base64
 util/base64:    util/base64.c
 
-ALL    += util/includer
-util/includer:  util/includer.c
+ALL    += util/cat
+util/cat:    util/cat.c
 
-################################
-## Base64                    |||
-################################
+ALL    += util/prepi.lex.c
+util/prepi.lex.c:  util/prepi.l util/cat.c util/base64.c util/prepi.h
+	$(LEX) -o $@ $<
 
-ALL    += res/b64/
-res/b64/:
-	mkdir -p $@
-
-res/b64/%: res/% util/base64
-	./util/base64 $< > $@;
+ALL    += util/prepi
+util/prepi: util/prepi.lex.c
 
 ################################
 ## Patched Cdecl             |||
@@ -51,7 +48,7 @@ patched/cdgram.c: patched/cdgram.y
 ALL += patched/cdlex.c
 patched/cdlex.c: patched/cdlex.l res/cdlex.l.patch
 	patch $< res/cdlex.l.patch
-	$(LEX) -o $@ $<
+	$(LEX) -l -o $@ $<
 
 ALL += patched/cdecl.c
 patched/cdecl.c: cdecl-2.5/cdecl.c res/cdecl.c.patch
@@ -84,14 +81,8 @@ res/date.txt: res/index.html res/style.css
 ALL    += index.html
 index.html: res/index.html     \
             util/*             \
-            res/*              \
-            res/b64/style.css  \
-            res/b64/module.wasm\
-            res/b64/help.txt   \
-            res/b64/date.txt   \
-            res/b64/body.html  \
-            res/b64/about.txt
-	./util/includer res/ $< > $@
+            res/*
+	./util/prepi res/ $< > $@
 
 ################################
 ##                           |||
