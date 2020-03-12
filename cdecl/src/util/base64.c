@@ -146,27 +146,25 @@ base64(FILE *in, FILE *out)
  ******************************************************************************/
 
 global int
-main(int argc, char **argv)
+base64_plugin_main(int argc, char **argv, FILE *in, FILE *out)
 {
-    FILE *in  = NULL;
-    FILE *out = NULL;
-
-    if (argc >= 2) {
-        if (NULL == (in = fopen(argv[1], "r"))) {
-            fprintf(stderr, "Couldn't open file '%s': ", argv[1]);
-            perror("");
-            return 0;
-        }
-    } else {
-        in = stdin;
-    }
-    out = stdout;
+    (void)argc; (void)argv;
+    //if (argc >= 2) {
+    //    if (NULL == (in = fopen(argv[1], "r"))) {
+    //        perrorf("Couldn't open file '%s': ", argv[1]);
+    //        return 0;
+    //    }
+    //}
 
     setvbuf(in, NULL, _IONBF, 0);
     setvbuf(out, NULL, _IONBF, 0);
 
     base64(in, out);
-
     return 0;
+}
+
+global int
+main(int argc, char **argv) {
+    return base64_plugin_main(argc, argv, stdin, stdout);
 }
 

@@ -7,12 +7,16 @@ global uint cat_ignore_trailing_newline = 0;
 global void
 cat(FILE *in, FILE *out)
 {
+    enum const_vals {
+        BUFFER_SIZE = 4096,
+    };
+
     local_persist uchar input_buffer[BUFFER_SIZE];
 
     while (!(feof(in) || ferror(in))) {
         uint len;
 
-        len = fread(input_buffer, 1, INBUFFER, in);
+        len = fread(input_buffer, 1, BUFFER_SIZE, in);
         fwrite(input_buffer, 1, len, out);
     }
 

@@ -23,12 +23,12 @@
  *  I didn't have a reason for base64 encoding the style sheet and all of the
  *  html, kind of just think it's funny that you can load both from a string.
  */
-const StyleCssContents   = atob('#B64_INCLUDE "style.css"');
-const BodyHtmlContents   = atob('#B64_INCLUDE "body.html"');
-const ModuleWasmContents = atob('#B64_INCLUDE "module.wasm"');
-const AboutTxtContents   = atob('#B64_INCLUDE "about.txt"');
-const HelpTxtContents    = atob('#B64_INCLUDE "help.txt"');
-const DateTxtContents    = atob('#B64_INCLUDE "date.txt"');
+const StyleCssContents   = atob('#INCLUDE_ME <base64> "style.css"');
+const BodyHtmlContents   = atob('#INCLUDE_ME <base64> "body.html"');
+const ModuleWasmContents = atob('#INCLUDE_ME <base64> "module.wasm"');
+const AboutTxtContents   = atob('#INCLUDE_ME <base64> "about.txt"');
+const HelpTxtContents    = atob('#INCLUDE_ME <base64> "help.txt"');
+const DateTxtContents    = atob('#INCLUDE_ME <base64> "date.txt"');
 
 const StyleElement = document.getElementById('style');
 const BodyElement  = document.getElementById('body');
@@ -174,8 +174,12 @@ const saveInput = function(x) {
 
 const runFunction = function(fun) {
     saveInput(InputElement.value + '\n');
-    fun();
-    printOutput();
+    if (fun === undefined) {
+        textareaSet(OutputElement, "Unable to Load CDECL's Wasm Module");
+    } else {
+        fun();
+        printOutput();
+    }
 }
 
 const printOutput = function() {
@@ -227,8 +231,7 @@ const init = function () {
 }
 
 const main = function(module, fs) {
-    const cdecl = module.asm['cdecl_function'];
-    const run   = ap(runFunction, cdecl);
+    const run = ap(runFunction, module._cdecl_function);
 
     InputElement.addEventListener('input', run,  false);
     InfoButton.addEventListener('click',  toggleInfoLayer,  false);
@@ -272,7 +275,7 @@ var FS     = {};
 
 emscriptenModuleConfig(Module, FS);
 
-#CAT_INCLUDE "module.js"
+#INCLUDE_ME "module.js"
 
 </script></body>
 

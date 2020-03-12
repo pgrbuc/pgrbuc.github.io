@@ -3,12 +3,12 @@ ALL     =
 
 CFLAGS     ?= --std=c99 -Wall -Wextra -Wpedantic
 CFLAGS     += -Wno-unused-function
-#CFLAGS     += -O3 -DNDEBUG -march=native
-CFLAGS     += -O0 -g
+CFLAGS     += -O3 -DNDEBUG -march=native
+#CFLAGS     += -O0 -g
 
 # Emscripten
 ECC        ?= emcc
-ECFLAGS    ?= --std=c99 -O2 -w -s NO_EXIT_RUNTIME=1 -DWASM -s WASM=1
+ECFLAGS    ?= --std=c99 -O3 -w -s NO_EXIT_RUNTIME=1 -DWASM -s WASM=1
 
 ################################
 ## Utilities                 |||
@@ -16,6 +16,9 @@ ECFLAGS    ?= --std=c99 -O2 -w -s NO_EXIT_RUNTIME=1 -DWASM -s WASM=1
 
 util/%: util/%.c
 	$(CC) $(CFLAGS) $< -o $@
+
+util/%.c: util/%.l
+	$(LEX) -o $@ $<
 
 ALL    += util/base64
 util/base64:    util/base64.c
@@ -25,7 +28,6 @@ util/cat:    util/cat.c
 
 ALL    += util/prepi.lex.c
 util/prepi.lex.c:  util/prepi.l util/cat.c util/base64.c util/prepi.h
-	$(LEX) -o $@ $<
 
 ALL    += util/prepi
 util/prepi: util/prepi.lex.c
