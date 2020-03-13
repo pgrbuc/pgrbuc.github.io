@@ -1,6 +1,9 @@
 #ifndef PREPI_H
 #define PREPI_H
 
+#include "stringss.h"
+#include "argv_make.h"
+
 #include <assert.h>
 #include <ctype.h>
 #include <stddef.h>

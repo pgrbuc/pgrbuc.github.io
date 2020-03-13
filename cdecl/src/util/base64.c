@@ -3,9 +3,29 @@
 /*******************************************************************************
  ** Base 64 encoder                                                          |||
  ******************************************************************************/
+void
+base64_parse_args(uint argc, char **argv, FILE *in, FILE *out)
+{
+    char *opt_outputname;
+
+    opt_outputname = argv_eat_option(&argc, argv, "--out");
+
+    for (uint i=1; i<argc; i++) {
+        debugf("%s: unrecognized option '%s'", argv[0], argv[i]);
+    }
+
+    if (opt_outputname && (NULL == (out = fopen(opt_outputname, "rb") ))) {
+        debugf("%s: can't open output file '%s'", argv[0], opt_outputname);
+    }
+
+    setvbuf(in, NULL, _IONBF, 0);
+    setvbuf(out, NULL, _IONBF, 0);
+
+    return;
+}
 
 global void
-base64(FILE *in, FILE *out)
+base64(int argc, char **argv, FILE *in, FILE *out)
 {
     /*
      * Base64 encoding takes 8-bit octets and outputs them as ascii letters
@@ -23,7 +43,6 @@ base64(FILE *in, FILE *out)
      * output buffer.
      *
      */
-
     enum const_vals {
         BUFFER_SIZE = 4096,
         INBUFFER  = BUFFER_SIZE * 3,
@@ -43,6 +62,8 @@ base64(FILE *in, FILE *out)
         'w', 'x', 'y', 'z', '0', '1', '2', '3',
         '4', '5', '6', '7', '8', '9', '+', '/',
     };
+
+    base64_parse_args(argc, argv, in, out);
 
     while (!(feof(in) || ferror(in))) {
         uint len;
@@ -146,25 +167,8 @@ base64(FILE *in, FILE *out)
  ******************************************************************************/
 
 global int
-base64_plugin_main(int argc, char **argv, FILE *in, FILE *out)
-{
-    (void)argc; (void)argv;
-    //if (argc >= 2) {
-    //    if (NULL == (in = fopen(argv[1], "r"))) {
-    //        perrorf("Couldn't open file '%s': ", argv[1]);
-    //        return 0;
-    //    }
-    //}
-
-    setvbuf(in, NULL, _IONBF, 0);
-    setvbuf(out, NULL, _IONBF, 0);
-
-    base64(in, out);
-    return 0;
-}
-
-global int
 main(int argc, char **argv) {
-    return base64_plugin_main(argc, argv, stdin, stdout);
+    base64(argc, argv, stdin, stdout);
+    return 0;
 }
 

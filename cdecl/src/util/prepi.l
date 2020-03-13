@@ -5,14 +5,6 @@
 %top{
 #define _POSIX_C_SOURCE 1
 
-#define LEX_ERROR           0x00
-#define LEX_EOF             0x01
-
-#define LEX_INCLUDE_ME      0x02
-#define LEX_INCLUDE_ME_ARGS 0x04
-
-#define LEX_INCLUDE_RESULT  (LEX_INCLUDE_ME | LEX_INCLUDE_ME_ARGS)
-
 /* TODO
  * syntax ideas
  *      A)
@@ -54,6 +46,20 @@
  *   maybe support some end-of-line comment starters like //, --, or "
  *
  */
+
+#define LEX_ERROR               0x00
+#define LEX_EOF                 0x01
+#define LEX_INCLUDE_NONE        0x02
+#define LEX_INCLUDE_FILE        0x04
+#define LEX_INCLUDE_ARGS        0x08
+#define LEX_INCLUDE_ARGS_FILE   0x10
+
+#define LEX_INCLUDE_RESULT  ( \
+    LEX_INCLUDE_NONE        | \
+    LEX_INCLUDE_FILE        | \
+    LEX_INCLUDE_ARGS        | \
+    LEX_INCLUDE_ARGS_FILE   )
+
 }
 
 /*******************************************************************************
@@ -62,11 +68,12 @@
 
 %option noyywrap
 
+FILE_EMPTY  \"([[:space:]])*\"
 FILE        \"(\\.|[^\\"])+\"
-ARG_STR     <(\\.|[^\\>])+>
+ARGS        <(\\.|[^\\>])+>
+ARGS_EMPTY  <([[:space:]])*>
+
 S           [[:space:]]*
-ARG_BEG     <
-ARG_END     >
 
 INCLUDE_ME  "#"[[:space:]]*"INCLUDE_ME"
 
@@ -76,10 +83,18 @@ INCLUDE_ME  "#"[[:space:]]*"INCLUDE_ME"
 
 %%
 
-<<EOF>> { return LEX_EOF; }
-{INCLUDE_ME}{S}{FILE} { return LEX_INCLUDE_ME; }
-{INCLUDE_ME}{S}{ARG_BEG}{S}{ARG_END}{S}{FILE} { return LEX_INCLUDE_ME; }
-{INCLUDE_ME}{S}{ARG_STR}{S}{FILE} { return LEX_INCLUDE_ME_ARGS; }
+<<EOF>>                                     { return LEX_EOF; }
+
+{INCLUDE_ME}{S}{FILE_EMPTY}                 { return LEX_INCLUDE_NONE; }
+{INCLUDE_ME}{S}{ARGS_EMPTY}{S}{FILE_EMPTY}  { return LEX_INCLUDE_NONE; }
+
+{INCLUDE_ME}{S}{FILE}                       { return LEX_INCLUDE_FILE; }
+{INCLUDE_ME}{S}{ARGS_EMPTY}{S}{FILE}        { return LEX_INCLUDE_FILE; }
+
+{INCLUDE_ME}{S}{ARGS}{S}                    { return LEX_INCLUDE_ARGS; }
+{INCLUDE_ME}{S}{ARGS}{S}{FILE_EMPTY}        { return LEX_INCLUDE_ARGS; }
+
+{INCLUDE_ME}{S}{ARGS}{S}{FILE}              { return LEX_INCLUDE_ARGS_FILE; }
 
 %%
 
@@ -93,8 +108,6 @@ INCLUDE_ME  "#"[[:space:]]*"INCLUDE_ME"
 #define MAX_ARG_LENGTH      128
 #define MAX_ARG_CT          10
 
-#include "stringss.h"
-#include "argv_make.h"
 #include "prepi.h"
 
 #define main cat_main
@@ -106,7 +119,7 @@ INCLUDE_ME  "#"[[:space:]]*"INCLUDE_ME"
 #undef main
 
 typedef YY_BUFFER_STATE lex_buffer_state_t;
-typedef void(*op_fun_t)(FILE*, FILE*);
+typedef void(*op_fun_t)(int, char**, FILE*, FILE*);
 
 typedef struct {
     FILE *in;
@@ -117,7 +130,17 @@ typedef struct {
     struct argv_result *arg;
 } file_t;
 
-global char IncludePath[MAX_FILEPATH];
+global const char *IncludePath;
+global const char *CurrentPath;
+
+internal void
+lexer_switch_active_file(FILE *in, FILE *out, lex_buffer_state_t bufstate)
+{
+    yyin  = in;
+    yyout = out;
+
+    yy_switch_to_buffer(bufstate);
+}
 
 /*******************************************************************************
  ** Operations                                                               |||
@@ -150,20 +173,22 @@ parse_filename(char *res, char const *text)
     return;
 }
 
-internal void
+internal uint
 parse_argstr(char *res, char const *text)
 {
+    uint len=0;
     const uint start = strchr_unescaped(text, 0, '<');
 
     if (text[start] == '<') {
         const uint first = start + 1;
         const uint end = strchr_unescaped(text, first, '>');
 
-        for (uint i=first; i<end; i++)
-            *res++ = text[i];
+        for (uint i=first; i<end; i++) {
+            res[len++] = text[i];
+        }
     }
-    *res++ = '\0';
-    return;
+    res[len] = '\0';
+    return len;
 }
 
 /*******************************************************************************
@@ -192,187 +217,189 @@ file_stack_delete(void)
 {
     file_t *fil;
 
-    if (file_stack_p == 0) {
+    if (file_stack_p < 0)
         abortf("%s", "file stack underrun");
-    }
 
     fil = &file_stack[file_stack_p--];
 
-    if (fil->in) {
+    if (fil->in)
         fclose(fil->in);
-        fil->in = NULL;
-    }
 
-    if (fil->tmp) {
+    if (fil->tmp)
         fclose(fil->tmp);
-        fil->tmp = NULL;
-    }
 
-    if (fil->arg) {
+    if (fil->arg)
         argv_delete(fil->arg, free);
-        fil->arg = NULL;
-    }
 
     yy_delete_buffer(fil->in_bufstate);
+    memset(fil, 0, sizeof(*fil));
 }
 
 internal int
 file_init(file_t *new, char *filepath, char *argument_str)
 {
+    char path1[1024];
+    char path2[1024];
     /* TODO check overflows */
-    strcpy(new->in_path, IncludePath);
-    strcat(new->in_path, filepath);
+    if ('\0' == new->in_path[0]) {
+        strcpy(path1, IncludePath);
+        strcat(path1, filepath);
 
-    if (NULL == (new->in = fopen(new->in_path, "r" ))) {
-        debugf("couldn't open: '%s'", new->in_path);
-        return 1;
+        strcpy(path2, CurrentPath);
+        strcat(path2, filepath);
     }
 
-    if (NULL == (new->tmp = tmpfile())) {
-        fclose(new->in);
-        debugf("couldn't make temp file for: '%s'", new->in_path);
-        return 1;
+    if (NULL == new->in) {
+        if (NULL != (new->in = fopen(path1, "rb" ))) {
+            strcpy(new->in_path, path1);
+        } else if (NULL != (new->in = fopen(path2, "rb" ))) {
+            strcpy(new->in_path, path2);
+        } else {
+            debugf("file_init couldn't open: '%s'", filepath);
+            return 1;
+        }
     }
 
-    /* TODO can this fail? */
+    if (NULL == new->tmp) {
+        if (NULL == (new->tmp = tmpfile())) {
+            fclose(new->in);
+            debugf("couldn't make temp file for: '%s'", new->in_path);
+            return 1;
+        }
+    }
+
     new->in_bufstate = yy_create_buffer(new->in, YY_BUF_SIZE);
 
-    if (NULL == (new->arg = argv_new(argument_str, malloc))) {
-        fclose(new->tmp);
-        fclose(new->in);
-        debugf("couldn't parse args: '%s'", argument_str);
+    if (NULL == new->arg) {
+        if (NULL == (new->arg = argv_new(argument_str, malloc))) {
+            fclose(new->tmp);
+            fclose(new->in);
+            debugf("couldn't parse args: '%s'", argument_str);
+        }
     }
 
     return 0;
 }
 
-internal void
-file_activate(file_t *fil)
-{
-    yyin  = fil->in;
-    yyout = fil->tmp;
-
-    yy_switch_to_buffer(fil->in_bufstate);
-}
-
-internal void
-load_directory_name(char const * const arg_dirname)
-{
-    /*
-     * adds '/' directory seperator if argument not passed with one
-     */
-    const uint min_filename_len = 1;
-    const uint dirname_len = strlen(arg_dirname);
-    const uint no_seperator = arg_dirname[dirname_len-1] != '/';
-    const uint max = ((MAX_FILEPATH-1) - min_filename_len) - no_seperator;
-
-    if (dirname_len >= max)
-        abortf("Directory too long ('%s' exceeds size %d)", arg_dirname, MAX_FILEPATH);
-
-    strcpy(IncludePath, arg_dirname);
-
-    if (no_seperator) {
-        strcat(IncludePath, "/");
-    }
-}
-
 /*******************************************************************************
  ** Main                                                                     |||
  ******************************************************************************/
-
-
-int
+char * const DefaultArgumentString = "cat";
+internal int
 loop(void)
 {
     int res = yylex();
-    char text_bak[YY_BUF_SIZE];
-    strcpy(text_bak, yytext);
-
     file_t *current = &file_stack[file_stack_p];
     file_t *parent = (file_stack_p > 0) ? current-1 : NULL;
+    FILE *dest = (parent == NULL) ? NULL : parent->tmp;
 
-    if (res & LEX_INCLUDE_RESULT) {
-        file_t *fil;
-        char filename_str[YY_BUF_SIZE];
-        char argument_str[YY_BUF_SIZE];
+    file_t *fil;
+    char filename_strbuf[YY_BUF_SIZE];
+    char argument_strbuf[YY_BUF_SIZE];
+    char *filename = filename_strbuf;
+    char *argument = argument_strbuf;
 
-        parse_filename(filename_str, yytext);
-        parse_argstr(argument_str, yytext);
-
-        fil = file_stack_new();
-        if (0 != file_init(fil, filename_str, argument_str)) {
-            debugf("couldn't proccess file: '%s'", yytext);
-            file_stack_delete();
-            fputs(yytext, current->tmp);
-        } else {
-            debug_padf(file_stack_p, "%s START", fil->in_path);
-            file_activate(fil);
-            switch (res) {
-                case LEX_INCLUDE_ME:      fil->op = cat;    break;
-                case LEX_INCLUDE_ME_ARGS: fil->op = op_from_str(fil->arg->argv[0]); break;
-                default: break;
-            }
-        }
-    } else if (res == LEX_EOF) {
+    /* start unwinding */
+    if (res == LEX_EOF) {
         rewind(current->tmp);
+        current->op(current->arg->argc, current->arg->argv, current->tmp, dest);
+        debug_padf(file_stack_p, "%s DONE", current->in_path);
+        file_stack_delete();
 
         if (parent == NULL) {
-            cat_ignore_trailing_newline = 0;
-            cat(current->tmp, stdout);
-            return 0;
-        } else {
-            current->op(current->tmp, parent->tmp);
-            debug_padf(file_stack_p, "%s DONE", current->in_path);
-            file_stack_delete();
-            debug_padf(file_stack_p, "  %s RESUME", parent->in_path);
-            file_activate(parent);
+            return 1;
         }
-    } else {
-        debugf("Unhandled op: %d", res);
-        return 0;
+
+        debug_padf(file_stack_p, "  %s RESUME", parent->in_path);
+        lexer_switch_active_file(parent->in, parent->tmp, parent->in_bufstate);
+        return loop();
     }
 
-    return 1;
+    if (0 == (res & LEX_INCLUDE_RESULT)) {
+        debugf("Unhandled op: %d", res);
+        return 1;
+    }
+
+    parse_filename(filename, yytext);
+    if (0 == parse_argstr(argument, yytext)) {
+        argument = DefaultArgumentString;
+    }
+
+    fil = file_stack_new();
+
+    if (0 != file_init(fil, filename, argument)) {
+        debugf("couldn't proccess file: '%s'", yytext);
+        file_stack_delete();
+        /* put rejected text into output */
+        fputs(yytext, current->tmp);
+    } else {
+        debug_padf(file_stack_p, "%s START", fil->in_path);
+        lexer_switch_active_file(fil->in, fil->tmp, fil->in_bufstate);
+        switch (res) {
+            case LEX_INCLUDE_FILE:      fil->op = cat;    break;
+            case LEX_INCLUDE_ARGS:      fil->op = op_from_str(fil->arg->argv[0]); break;
+            case LEX_INCLUDE_ARGS_FILE: fil->op = op_from_str(fil->arg->argv[0]); break;
+            default: break;
+        }
+    }
+
+    return loop();
 }
+
 
 int
 main(int argc, char **argv)
 {
-    char * const arg_progname = argv[0];
-    char * const arg_dirname  = argv[1];
-    char * const arg_filename = argv[2];
+    /*
+     * TODO this should have a more normal arguments ie.
+     * - search directories are pos-independent options "-Idir" or "-I dir"
+     *
+     * - input and output are pos-dependant and looked at after consuming all
+     *   flags and options
+     *
+     * - ./includer infile [[-o] outfile]
+     */
+    char const * const arg_progname = argv[0];
+    char const * const arg_dirname  = argv[1];
+    char const * const arg_inname   = argv[2];
+    char const * const arg_outname  = argv[3];
+    char const * const dirname = argc >= 2 ? arg_dirname : "./";
+    char const * const inname  = argc >= 3 ? arg_inname  : "-";
+    char const * const outname = argc >= 4 ? arg_outname : "-";
+    char const dir_slash = dirname[strlen(dirname)-1];
 
-    file_t *fil = file_stack_new();
 
-    if (argc != 3) {
-        abortf("usage %s INCLUDE_DIR INCLUDE_FILE", arg_progname);
+    /* check args */
+    if (argc > 4)
+        abortf("usage %s [INCLUDE_DIR] [INCLUDE_FILE] [OUTPUT_FILE]", arg_progname);
+
+    if (dir_slash != '/' && dir_slash != '\\')
+        abortf("directory name must have trailing slash: '%s'", dirname);
+
+    CurrentPath = "./";
+    IncludePath = dirname;
+
+    /* build first string that will kickstart the lexer */
+    {
+        char kickstart[YY_BUF_SIZE];
+        char const * const fmt = "#INCLUDE_ME <cat -o \"%s\"> \"%s\"";
+
+        if (YY_BUF_SIZE < (snprintf(0, 0, fmt, outname, inname) + 1))
+            abortf("filenames too long to include: '%s' '%s'", outname, inname);
+
+        snprintf(kickstart, YY_BUF_SIZE, fmt, outname, inname);
+        yy_scan_string(kickstart);
     }
 
-    if (0 == strcmp(arg_filename, "-")) {
-        fil->in = stdin;
-        strcpy(fil->in_path, "<stdin>");
-    } else {
-        if (NULL == (fil->in = fopen(arg_filename, "rb"))) {
-            abortf("unable to open file '%s'", arg_filename);
-        }
-        strcpy(fil->in_path, arg_filename);
-    }
+    lex_buffer_state_t kickstart_state;
 
-    fil->tmp = tmpfile();
-    fil->in_bufstate = yy_create_buffer(fil->in, YY_BUF_SIZE);
-    fil->op = cat;
-    file_activate(fil);
+    debugf("LEXER START: '%s'", yytext);
+    kickstart_state = YY_CURRENT_BUFFER;
 
-    load_directory_name(arg_dirname);
+    loop();
 
-    cat_ignore_trailing_newline = 1;
-
-    debugf("%s START", fil->in_path);
-
-    while (0 != loop())
-        ;
-
-    debugf("%s END", fil->in_path);
+    yy_delete_buffer(kickstart_state);
+    debugf("%s", "LEXER END");
 
     return 0;
 }
