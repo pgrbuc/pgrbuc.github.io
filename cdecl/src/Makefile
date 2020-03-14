@@ -3,8 +3,8 @@ ALL     =
 
 CFLAGS     ?= --std=c99 -Wall -Wextra -Wpedantic
 CFLAGS     += -Wno-unused-function
-#CFLAGS     += -O3 -DNDEBUG -march=native
-CFLAGS     += -O0 -g
+CFLAGS     += -O3 -DNDEBUG -march=native
+#CFLAGS     += -O0 -g
 
 # Emscripten
 ECC        ?= emcc

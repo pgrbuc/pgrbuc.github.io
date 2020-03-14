@@ -50,11 +50,13 @@ cat(int argc, char **argv, FILE *in, FILE *out)
     uint eof = 0;
     while (!eof) {
         uint len = 0;
+        uint garbage;
 
         len = fread(input_buffer, 1, BUFFER_SIZE, in);
 
         /* test if done */
-        fread(NULL, 1, 0, in);
+        garbage = fread(NULL, 1, 0, in);
+        (void)garbage;
         eof = feof(in) || ferror(in);
 
         if (eof && cat_skip_last_newline && input_buffer[len-1] == '\n')

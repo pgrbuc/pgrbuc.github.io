@@ -23,6 +23,9 @@ typedef size_t uint;
     #define debugf(fmt, ...) \
         (fprintf(stderr, fmt"\n", __VA_ARGS__))
 
+    #define debugf_no_newln(fmt, ...) \
+        (fprintf(stderr, fmt, __VA_ARGS__))
+
     #define debug_padf(n, fmt, ...)                 \
     do {                                            \
         for (uint i=0; i<(((uint)n)*4); i++) {      \
@@ -33,6 +36,7 @@ typedef size_t uint;
 
 #else
     #define debugf(fmt, ...)
+    #define debugf_no_newln(fmt, ...)
     #define debug_padf(n, fmt, ...)
 #endif
 
