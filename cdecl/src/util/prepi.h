@@ -26,18 +26,15 @@ typedef size_t uint;
     #define debugf_no_newln(fmt, ...) \
         (fprintf(stderr, fmt, __VA_ARGS__))
 
-    #define debug_padf(n, fmt, ...)                 \
-    do {                                            \
-        for (uint i=0; i<(((uint)n)*4); i++) {      \
-            fputc(' ', stderr);                     \
-        }                                           \
-        fprintf(stderr, fmt"\n", __VA_ARGS__);      \
-    } while (0)
-
 #else
-    #define debugf(fmt, ...)
-    #define debugf_no_newln(fmt, ...)
-    #define debug_padf(n, fmt, ...)
+    static int debugf(char *fmt, ...) {
+        (void) fmt;
+        return 0;
+    }
+    static int debugf_no_newln(char *fmt, ...) {
+        (void) fmt;
+        return 0;
+    }
 #endif
 
 #define abortf(fmt, ...) \

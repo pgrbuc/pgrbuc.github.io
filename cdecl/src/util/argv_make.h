@@ -11,11 +11,6 @@ static const char make_argv_delims[][2] = {
 };
 static const size_t make_argv_delims_siz = sizeof(make_argv_delims) / sizeof(*make_argv_delims);
 
-struct argv_result {
-    char **argv;
-    size_t argc;
-};
-
 static size_t
 argv_make(
     const char *text,
@@ -29,7 +24,6 @@ argv_make(
     );
 
     *argv_len = 0;
-
 
     for (size_t v=0; dry_run || v < argv_siz; v++) {
         size_t arg_len = 0;
@@ -67,7 +61,7 @@ argv_make(
         if (!dry_run && ((buf_i + arg_len + 1) > buf_siz)) {
             *argv++ = NULL;
             *buf_len = buf_i;
-            return 1;
+            return -1;
         }
 
         /* add pointer to argument vector */
@@ -104,20 +98,20 @@ argv_make(
     return 0;
 }
 
-static struct argv_result *
-argv_new(const char *text, void *(*new_fun)(size_t size))
+static int
+argv_new(const char *text, char ***argvp, size_t *argcp, void *(*new_fun)(size_t size))
 {
-    struct argv_result *retp = NULL;
-
     size_t argstr_siz;
     size_t argstr_len;
+    void  *argstr_buf;
+
     size_t argvec_siz;
     size_t argvec_len;
+    void  *argvec_buf;
 
     size_t total_siz;
-    uintptr_t align_buf;
+    uintptr_t aligned_addr;
     const size_t align_pad = 16;
-    const size_t struct_siz = sizeof(struct argv_result);
 
     /* dry run to calculate space needed */
     argv_make(text, NULL, 0, &argstr_len, NULL, 0, &argvec_len);
@@ -126,7 +120,7 @@ argv_new(const char *text, void *(*new_fun)(size_t size))
 
     /* No arguments found */
     if (argvec_len == 0 || argstr_len == 0) {
-        return NULL;
+        return -1;
     }
 
     /*
@@ -134,41 +128,35 @@ argv_new(const char *text, void *(*new_fun)(size_t size))
      * of string pointers, and the strings they point to. Also extra padding
      * for alignment.
      */
-
-    total_siz = struct_siz + align_pad + argvec_siz +
-                                    align_pad + argstr_siz;
-
-    if (0 == (align_buf = (uintptr_t)new_fun(total_siz))) {
-        return NULL;
+    total_siz = argvec_siz + align_pad + argstr_siz;
+    if (0 == (aligned_addr = (uintptr_t)new_fun(total_siz))) {
+        return -1;
     }
 
-    assert(0 == (align_buf % align_pad));
+    assert(0 == (aligned_addr % align_pad));
+    argvec_buf = (void*)aligned_addr;
 
-    retp = (struct argv_result *)align_buf;
+    aligned_addr += argvec_siz;
+    while (aligned_addr % align_pad)
+        aligned_addr++;
 
-    align_buf += struct_siz;
-    while (align_buf % align_pad)
-        align_buf++;
-
-    retp->argv = (char**)align_buf;
-
-    align_buf += argvec_siz;
-    while (align_buf % align_pad)
-        align_buf++;
+    assert(0 == (aligned_addr % align_pad));
+    argstr_buf = (void*)aligned_addr;
 
     /* run argv_make for real and return results */
-    argv_make(text, (char*)align_buf, argstr_siz, &argstr_len,
-                             retp->argv, argvec_siz, &argvec_len);
+    argv_make(text, argstr_buf, argstr_siz, &argstr_len,
+                    argvec_buf, argvec_siz, &argvec_len);
 
-    retp->argc = argvec_len;
+    *argvp = argvec_buf;
+    *argcp = argvec_len;
 
-    return retp;
+    return 0;
 }
 
 static void
-argv_delete(struct argv_result *arg, void (*delete_fun)(void* ptr))
+argv_delete(char **argv, void (*delete_fun)(void* ptr))
 {
-    delete_fun(arg);
+    delete_fun(argv);
 }
 
 static char*
@@ -189,7 +177,7 @@ argv_eat_flag(size_t *argcp, char **argv, const char *flag)
      */
     for (i=1; i < argc; i++) {
         /* look for flag in vector */
-        if (0 == strcmp(argv[i], flag)) {
+        if (!flag_result && (0 == strcmp(argv[i], flag))) {
             flag_result = argv[i];
             *argcp -= 1;
         }
@@ -230,7 +218,7 @@ argv_eat_option(size_t *argcp, char **argv, const char *flag)
     assert(argc);
 
     for (i=1; i < (argc-1); i++) {
-        if (0 == strcmp(argv[i], flag)) {
+        if (!option_result && (0 == strcmp(argv[i], flag))) {
             option_result = argv[i+1];
             *argcp -= 2;
         }
@@ -256,5 +244,53 @@ argv_eat_option(size_t *argcp, char **argv, const char *flag)
     }
 
     return option_result;
+}
+
+static int
+argv_is_prefix_of(char const *flag, char const *arg)
+{
+    size_t i;
+    const size_t flag_len = strlen(flag);
+    const size_t arg_len  = strlen(arg);
+
+    const size_t end_len  = arg_len > flag_len ? 0 : arg_len - flag_len;
+
+    for (i=0; i<flag_len; i++) {
+        if (i >= end_len)
+            return 0;
+        if (flag[i] != arg[i])
+            return 0;
+    }
+    return 1;
+}
+
+static char*
+argv_eat_combo_flag(size_t *argcp, char **argv, const char *flag)
+{
+    char *flag_result = NULL;
+    const size_t argc = *argcp;
+    size_t i;
+
+    assert(argv);
+    assert(*argv);
+    assert(argc);
+
+    for (i=1; i < argc; i++) {
+        if (!flag_result && argv_is_prefix_of(flag, argv[i])) {
+            flag_result = argv[i] + strlen(flag);
+            *argcp -= 1;
+        }
+
+        if (flag_result) {
+            argv[i] = argv[i+1];
+        }
+    }
+
+    if (flag_result) {
+        argv[argc-0] = NULL;
+        argv[argc-1] = NULL;
+    }
+
+    return flag_result;
 }
 

@@ -6,18 +6,9 @@
 #define _POSIX_C_SOURCE 1
 
 /* TODO
- * get rid of the argv_result struct stuff
  *
- * now that the loop is a bit cleaner I could probably have a file_t stack in
- * the bss that works off of depth, maybe a lexer_state stack.
- *
- * syntax ideas
- *      A)
- *          #INCLUDE_ME <cat arg1> "test.txt"
- *          #INCLUDE_ME <base64 arg1> "test.txt"
- *          #INCLUDE_ME <base64> "test.txt"
- *          #INCLUDE_ME <base64 arg1 | cat arg2> "test.txt"
- *
+ * - static allocations for argv buffers
+ * - normal argument parsing for main pper
  * - this could be neater and have less global-variables
  * - add parameters argc argvs for operation functions
  * - possibly chaining:
@@ -131,10 +122,8 @@ typedef struct {
     FILE *tmp;
     lex_buffer_state_t in_bufstate;
     op_fun_t op;
-    struct argv_result *arg;
-    #ifndef NDEBUG
-    char debug_filename[MAX_FILEPATH];
-    #endif
+    char **argv;
+    uint argc;
 } file_t;
 
 global const char *IncludePath;
@@ -165,8 +154,8 @@ op_init(file_t *fil, uint lexer_result) {
     switch (lexer_result) {
         case LEX_INCLUDE_NONE:      fil->op = cat; return 0;
         case LEX_INCLUDE_FILE:      fil->op = cat; return 0;
-        case LEX_INCLUDE_ARGS:      fil->op = op_from_str(fil->arg->argv[0]); return 0;
-        case LEX_INCLUDE_ARGS_FILE: fil->op = op_from_str(fil->arg->argv[0]); return 0;
+        case LEX_INCLUDE_ARGS:      fil->op = op_from_str(fil->argv[0]); return 0;
+        case LEX_INCLUDE_ARGS_FILE: fil->op = op_from_str(fil->argv[0]); return 0;
         default: return 1;
     }
 }
@@ -222,6 +211,7 @@ file_init(file_t *new, char *filepath, char *argument_str)
     char *in_path;
 
     /* TODO check overflows */
+    /* TODO replace this with a vector of directories to try */
     strcpy(path1, IncludePath);
     strcat(path1, filepath);
 
@@ -237,20 +227,15 @@ file_init(file_t *new, char *filepath, char *argument_str)
         return 1;
     }
 
-    #ifndef NDEBUG
-        strcpy(new->debug_filename, in_path);
-    #endif
-
     if (NULL == (new->tmp = tmpfile())) {
         fclose(new->in);
         debugf("couldn't make temp file for: '%s'", in_path);
-        (void)in_path;
         return 1;
     }
 
     new->in_bufstate = yy_create_buffer(new->in, YY_BUF_SIZE);
 
-    if (NULL == (new->arg = argv_new(argument_str, malloc))) {
+    if (0 != (argv_new(argument_str, &new->argv, &new->argc, malloc))) {
         fclose(new->tmp);
         fclose(new->in);
         debugf("couldn't parse args: '%s'", argument_str);
@@ -259,64 +244,57 @@ file_init(file_t *new, char *filepath, char *argument_str)
     return 0;
 }
 
+internal void
+file_destroy(file_t *new)
+{
+    if (NULL != new->in) {
+        fclose(new->in);
+        new->in = NULL;
+    }
+
+    if (NULL != new->tmp) {
+        fclose(new->tmp);
+        new->tmp = NULL;
+    }
+
+    yy_delete_buffer(new->in_bufstate);
+    argv_delete(new->argv, free);
+    new->argv = NULL;
+    return;
+}
+
 /*******************************************************************************
  ** Main                                                                     |||
  ******************************************************************************/
-uint Depth = 0;
-
-#ifndef NDEBUG
-internal void
-debug_print_parent(file_t *parent, char *stmt)
-{
-    if (parent == NULL) {
-        for (uint i=0; i<Depth; i++)
-            debugf_no_newln("%s", "  ");
-
-        debugf_no_newln("%s '%s'.%s()\n", stmt, "root", "no-op");
-    } else {
-        uint i;
-        uint argc   = parent->arg->argc;
-        char **argv = parent->arg->argv;
-        for (i=0; i<Depth; i++)
-            debugf_no_newln("%s", "  ");
-
-        debugf_no_newln("%s '%s'.", stmt, parent->debug_filename);
-        debugf_no_newln("%s(", argv[0]);
-        for (i=1; i<argc; i++)
-            debugf_no_newln("'%s'%s", argv[i], (i<argc-1) ? " " : "");
-        debugf("%s", ")");
-    }
-}
-#else
-    #define debug_print_parent(p, s) (void)p
-#endif
 
 internal int
-loop(void)
+loop(char *parent)
 {
+    local_persist uint include_depth = 0;
     FILE *current_in  = yyin;
     FILE *current_out = yyout;
     lex_buffer_state_t current_buffer = YY_CURRENT_BUFFER;
 
-    Depth++;
-    //debug_print_parent(parent, "START");
+    debugf("%s START", parent);
+    include_depth++;
 
     while (1) {
-        int res = yylex();
+        file_t new = {0};
+        char filename[YY_BUF_SIZE];
+        char argument[YY_BUF_SIZE];
+        int res;
+
+        res = yylex();
 
         /* base case */
         if ((res == LEX_ERROR) || (res == LEX_EOF)) {
-            //debug_print_parent(parent, "  END");
-            Depth--;
+            debugf("%s END", parent);
+            include_depth--;
             return 0;
         }
 
-        /* recursive call */
-        if (res & LEX_INCLUDE_RESULT) {
-            file_t new = {0};
-            char filename[YY_BUF_SIZE];
-            char argument[YY_BUF_SIZE];
-
+        /* set up for recursive call */
+        {
             parse_filename(filename, yytext);
             parse_argstr(argument, yytext);
 
@@ -336,17 +314,24 @@ loop(void)
             }
 
             lexer_switch_active_file(new.in, new.tmp, new.in_bufstate);
-
-            if (0 != loop()) {
-                debugf("[ %s ] < %s > loop return error", filename, argument);
-            }
-
-            rewind(new.tmp);
-            new.op(new.arg->argc, new.arg->argv, new.tmp, current_out);
-
-            /* switch back and continue parsing file */
-            lexer_switch_active_file(current_in, current_out, current_buffer);
         }
+
+        /* recursive call */
+        if (0 != loop(filename)) {
+            debugf("[ %s ] < %s > loop return error", filename, argument);
+        }
+
+        /*
+         * The entire file from the include statement has been fully
+         * read into a file and can be operated over and then appended at the
+         * end of the current output.
+         */
+        rewind(new.tmp);
+        new.op(new.argc, new.argv, new.tmp, current_out);
+
+        file_destroy(&new);
+        /* switch back and continue parsing file */
+        lexer_switch_active_file(current_in, current_out, current_buffer);
     }
 }
 
@@ -398,7 +383,7 @@ main(int argc, char **argv)
     kickstart_state = YY_CURRENT_BUFFER;
 
     yyout = stdout;
-    loop();
+    loop("<root>");
 
     yy_delete_buffer(kickstart_state);
 
